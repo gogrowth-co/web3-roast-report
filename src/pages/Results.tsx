@@ -7,6 +7,19 @@ import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
+// Define interfaces for our AI analysis data structure
+interface Finding {
+  category: string;
+  severity: 'low' | 'medium' | 'high';
+  feedback: string;
+}
+
+interface AIAnalysis {
+  score: number;
+  summary: string;
+  findings: Finding[];
+}
+
 const Results = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -84,7 +97,19 @@ const Results = () => {
     );
   }
 
-  const analysis = roast.ai_analysis;
+  // Cast the analysis to our defined interface
+  const analysis = roast.ai_analysis as AIAnalysis;
+  
+  // Check if the analysis is valid and has the expected structure
+  if (!analysis || !analysis.score || !analysis.summary || !analysis.findings) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+        <h2 className="text-xl text-red-500 font-bold mb-4">Analysis data is incomplete</h2>
+        <p className="text-gray-400 mb-4">The analysis didn't return the expected results.</p>
+        <Button onClick={() => navigate('/')}>Try Again</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
@@ -98,7 +123,7 @@ const Results = () => {
           </div>
           <p className="text-gray-300 mb-6">{analysis.summary}</p>
           <div className="space-y-6">
-            {analysis.findings.map((finding: any, index: number) => (
+            {analysis.findings.map((finding, index) => (
               <div key={index} className="bg-zinc-800 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-400">
