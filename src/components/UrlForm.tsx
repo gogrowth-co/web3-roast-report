@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
@@ -8,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 const UrlForm = () => {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const validateUrl = (input: string) => {
     try {
@@ -34,19 +36,21 @@ const UrlForm = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('roasts')
         .insert([
           { 
             url: url.trim(),
             status: 'pending'
           }
-        ]);
+        ])
+        .select('id')
+        .single();
 
       if (error) throw error;
       
-      toast.success("Analysis started! Redirecting to results...");
-      setUrl('');
+      toast.success("Analysis started!");
+      navigate(`/results/${data.id}`);
       
     } catch (error: any) {
       toast.error(error.message);
