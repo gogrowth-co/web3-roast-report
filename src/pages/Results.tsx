@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -97,11 +96,14 @@ const Results = () => {
     );
   }
 
-  // Cast the analysis to our defined interface
-  const analysis = roast.ai_analysis as AIAnalysis;
-  
-  // Check if the analysis is valid and has the expected structure
-  if (!analysis || !analysis.score || !analysis.summary || !analysis.findings) {
+  let analysis: AIAnalysis;
+  try {
+    analysis = JSON.parse(JSON.stringify(roast.ai_analysis)) as AIAnalysis;
+    
+    if (!analysis?.score || !analysis?.summary || !Array.isArray(analysis?.findings)) {
+      throw new Error('Invalid analysis data structure');
+    }
+  } catch (error) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <h2 className="text-xl text-red-500 font-bold mb-4">Analysis data is incomplete</h2>
