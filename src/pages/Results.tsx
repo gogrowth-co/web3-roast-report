@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -86,21 +87,22 @@ const Results = () => {
     );
   }
 
-  if (roast.status === 'pending') {
-    return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
-        <Loader2 className="h-8 w-8 animate-spin text-web3-orange mb-4" />
-        <h2 className="text-xl text-white font-bold">Analyzing your Web3 project...</h2>
-        <p className="text-gray-400 mt-2">This might take a minute</p>
-      </div>
-    );
-  }
-
-  let analysis: AIAnalysis;
+  // Safely parse and validate the AI analysis
+  let analysis: AIAnalysis | null = null;
   try {
-    analysis = JSON.parse(JSON.stringify(roast.ai_analysis)) as AIAnalysis;
-    
-    if (!analysis?.score || !analysis?.summary || !Array.isArray(analysis?.findings)) {
+    // Check if ai_analysis exists and is a string that can be parsed
+    if (typeof roast.ai_analysis === 'string') {
+      analysis = JSON.parse(roast.ai_analysis) as AIAnalysis;
+    } else if (typeof roast.ai_analysis === 'object' && roast.ai_analysis !== null) {
+      // If it's already an object, type cast it
+      analysis = roast.ai_analysis as AIAnalysis;
+    }
+
+    // Validate the parsed analysis
+    if (!analysis || 
+        typeof analysis.score !== 'number' || 
+        typeof analysis.summary !== 'string' || 
+        !Array.isArray(analysis.findings)) {
       throw new Error('Invalid analysis data structure');
     }
   } catch (error) {
@@ -113,6 +115,7 @@ const Results = () => {
     );
   }
 
+  // At this point, analysis is guaranteed to be non-null and valid
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
