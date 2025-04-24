@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const UrlForm = () => {
   const [url, setUrl] = useState('');
@@ -33,22 +34,22 @@ const UrlForm = () => {
     setIsLoading(true);
     
     try {
-      // This would connect to your backend in production
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { error } = await supabase
+        .from('roasts')
+        .insert([
+          { 
+            url: url.trim(),
+            status: 'pending'
+          }
+        ]);
+
+      if (error) throw error;
       
-      // Show success toast
       toast.success("Analysis started! Redirecting to results...");
-      
-      // Reset form
       setUrl('');
       
-      // In a real app, you'd redirect to the results page
-      setTimeout(() => {
-        console.log("Would redirect to results page with URL:", url);
-      }, 2000);
-      
-    } catch (error) {
-      toast.error("Something went wrong. Please try again.");
+    } catch (error: any) {
+      toast.error(error.message);
       console.error(error);
     } finally {
       setIsLoading(false);
