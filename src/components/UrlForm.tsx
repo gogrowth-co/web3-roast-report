@@ -36,12 +36,22 @@ const UrlForm = () => {
     setIsLoading(true);
     
     try {
+      // Get the current session to include the user_id
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Please sign in to create a roast");
+        navigate('/auth');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('roasts')
         .insert([
           { 
             url: url.trim(),
-            status: 'pending'
+            status: 'pending',
+            user_id: session.user.id // Include the user_id from the session
           }
         ])
         .select('id')
