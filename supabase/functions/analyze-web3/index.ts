@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 
@@ -7,14 +6,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { url, roastId } = await req.json()
+    const { roastId } = await req.json()
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    const roastResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}&select=url`, {
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+      }
+    });
+    
+    const [roast] = await roastResponse.json();
+    if (!roast) throw new Error('Roast not found');
+
+    await delay(30000);
 
     const systemPrompt = `You are a Web3 UX expert. Analyze the following Web3 project URL and provide detailed feedback on:
     1. User Experience
@@ -42,7 +57,7 @@ serve(async (req) => {
         model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze this Web3 project: ${url}` }
+          { role: "user", content: `Analyze this Web3 project: ${roast.url}` }
         ],
       }),
     })
@@ -50,10 +65,6 @@ serve(async (req) => {
     const data = await response.json()
     const analysis = JSON.parse(data.choices[0].message.content)
 
-    // Update the roast record with the analysis
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    
     const supabaseResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}`, {
       method: 'PATCH',
       headers: {

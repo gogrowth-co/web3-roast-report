@@ -1,11 +1,8 @@
-
-import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { useRoastStatus } from '@/hooks/useRoastStatus';
 
 // Define interfaces for our AI analysis data structure
 interface Finding {
@@ -24,51 +21,35 @@ const Results = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { data: roast, isLoading, error } = useQuery({
-    queryKey: ['roast', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('roasts')
-        .select('*')
-        .eq('id', id)
-        .single();
+  if (!id) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+        <h2 className="text-xl text-white font-bold mb-4">Invalid roast ID</h2>
+        <Button onClick={() => navigate('/')}>Back to Home</Button>
+      </div>
+    );
+  }
+
+  const { data: roast, isLoading, error } = useRoastStatus(id);
+
+  if (isLoading || (roast && roast.status === 'pending')) {
+    // Calculate which loading message to show based on time elapsed
+    const getLoadingState = () => {
+      if (!roast) return { message: "Initializing analysis...", description: "Getting things ready" };
       
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  useEffect(() => {
-    const startAnalysis = async () => {
-      if (roast && roast.status === 'pending') {
-        try {
-          const response = await supabase.functions.invoke('analyze-web3', {
-            body: { 
-              url: roast.url, 
-              roastId: roast.id,
-              timestamp: new Date().toISOString() // Add timestamp for cache busting screenshot
-            }
-          });
-
-          if (!response.data?.success) {
-            throw new Error('Analysis failed');
-          }
-        } catch (error) {
-          console.error('Analysis error:', error);
-          toast.error('Failed to analyze the URL');
-        }
-      }
+      return {
+        message: "AI is analyzing your project...",
+        description: "This usually takes about 30 seconds"
+      };
     };
 
-    startAnalysis();
-  }, [roast]);
+    const { message, description } = getLoadingState();
 
-  if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <Loader2 className="h-8 w-8 animate-spin text-web3-orange mb-4" />
-        <h2 className="text-xl text-white font-bold">Analyzing your Web3 project...</h2>
-        <p className="text-gray-400 mt-2">This might take a minute</p>
+        <h2 className="text-xl text-white font-bold">{message}</h2>
+        <p className="text-gray-400 mt-2">{description}</p>
       </div>
     );
   }
@@ -87,16 +68,6 @@ const Results = () => {
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <h2 className="text-xl text-white font-bold mb-4">Results not found</h2>
         <Button onClick={() => navigate('/')}>Back to Home</Button>
-      </div>
-    );
-  }
-
-  if (roast.status === 'pending') {
-    return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
-        <Loader2 className="h-8 w-8 animate-spin text-web3-orange mb-4" />
-        <h2 className="text-xl text-white font-bold">Analyzing your Web3 project...</h2>
-        <p className="text-gray-400 mt-2">This might take a minute</p>
       </div>
     );
   }
