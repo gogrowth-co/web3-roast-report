@@ -43,7 +43,11 @@ const Results = () => {
       if (roast && roast.status === 'pending') {
         try {
           const response = await supabase.functions.invoke('analyze-web3', {
-            body: { url: roast.url, roastId: roast.id }
+            body: { 
+              url: roast.url, 
+              roastId: roast.id,
+              timestamp: new Date().toISOString() // Add timestamp for cache busting screenshot
+            }
           });
 
           if (!response.data?.success) {
@@ -87,18 +91,27 @@ const Results = () => {
     );
   }
 
-  // Safely parse and validate the AI analysis
-  let analysis: AIAnalysis | null = null;
+  if (roast.status === 'pending') {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-web3-orange mb-4" />
+        <h2 className="text-xl text-white font-bold">Analyzing your Web3 project...</h2>
+        <p className="text-gray-400 mt-2">This might take a minute</p>
+      </div>
+    );
+  }
+
+  let analysis: AIAnalysis;
   try {
-    // Check if ai_analysis exists and is a string that can be parsed
     if (typeof roast.ai_analysis === 'string') {
       analysis = JSON.parse(roast.ai_analysis) as AIAnalysis;
-    } else if (typeof roast.ai_analysis === 'object' && roast.ai_analysis !== null) {
-      // If it's already an object, type cast it
-      analysis = roast.ai_analysis as AIAnalysis;
+    } else if (roast.ai_analysis && typeof roast.ai_analysis === 'object') {
+      analysis = roast.ai_analysis as unknown as AIAnalysis;
+    } else {
+      throw new Error('Invalid analysis data');
     }
 
-    // Validate the parsed analysis
+    // Validate the required fields exist and are of correct type
     if (!analysis || 
         typeof analysis.score !== 'number' || 
         typeof analysis.summary !== 'string' || 
@@ -115,7 +128,6 @@ const Results = () => {
     );
   }
 
-  // At this point, analysis is guaranteed to be non-null and valid
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
