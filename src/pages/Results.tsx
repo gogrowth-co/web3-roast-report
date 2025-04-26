@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,7 @@ const Results = () => {
       throw new Error('Invalid analysis data structure');
     }
   } catch (error) {
+    console.error('Analysis data parsing error:', error);
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <h2 className="text-xl text-red-500 font-bold mb-4">Analysis data is incomplete</h2>
@@ -147,7 +149,13 @@ const Results = () => {
               <h2 className="text-xl font-semibold mb-4">Screenshot</h2>
               <p className="text-gray-400 mb-4">Full page capture of your Web3 project</p>
               <div className="rounded-lg border border-zinc-800 overflow-hidden">
-                <img src={roast.screenshot_url} alt="Website Screenshot" className="w-full" />
+                {roast.screenshot_url ? (
+                  <img src={roast.screenshot_url} alt="Website Screenshot" className="w-full" />
+                ) : (
+                  <div className="bg-zinc-800 h-64 flex items-center justify-center">
+                    <p className="text-gray-400">Screenshot not available</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -165,9 +173,53 @@ const Results = () => {
                 </TabsList>
 
                 <TabsContent value="all" className="mt-6">
-                  {analysis.findings.map((finding, index) => (
-                    <FeedbackItem key={index} {...finding} />
-                  ))}
+                  {analysis.findings && analysis.findings.length > 0 ? (
+                    analysis.findings.map((finding, index) => (
+                      <FeedbackItem key={index} {...finding} />
+                    ))
+                  ) : (
+                    <p className="text-gray-400">No feedback items available</p>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="high" className="mt-6">
+                  {analysis.findings && analysis.findings.filter(f => f.severity === 'high').length > 0 ? (
+                    analysis.findings
+                      .filter(finding => finding.severity === 'high')
+                      .map((finding, index) => (
+                        <FeedbackItem key={index} {...finding} />
+                      ))
+                  ) : (
+                    <p className="text-gray-400">No high priority issues found</p>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="medium" className="mt-6">
+                  {analysis.findings && analysis.findings.filter(f => f.severity === 'medium').length > 0 ? (
+                    analysis.findings
+                      .filter(finding => finding.severity === 'medium')
+                      .map((finding, index) => (
+                        <FeedbackItem key={index} {...finding} />
+                      ))
+                  ) : (
+                    <p className="text-gray-400">No medium priority issues found</p>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="low" className="mt-6">
+                  {analysis.findings && analysis.findings.filter(f => f.severity === 'low').length > 0 ? (
+                    analysis.findings
+                      .filter(finding => finding.severity === 'low')
+                      .map((finding, index) => (
+                        <FeedbackItem key={index} {...finding} />
+                      ))
+                  ) : (
+                    <p className="text-gray-400">No low priority issues found</p>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="positives" className="mt-6">
+                  <p className="text-gray-400">Positive aspects will be highlighted in future updates</p>
                 </TabsContent>
               </Tabs>
             </div>
@@ -187,9 +239,13 @@ const Results = () => {
               <h2 className="text-xl font-semibold mb-4">Category Breakdown</h2>
               <p className="text-gray-400 mb-6">Performance by category</p>
               <div className="space-y-6">
-                {Object.entries(analysis.categories).map(([name, score]) => (
-                  <CategoryScore key={name} name={name} score={score} />
-                ))}
+                {analysis.categories && Object.entries(analysis.categories).length > 0 ? (
+                  Object.entries(analysis.categories).map(([name, score]) => (
+                    <CategoryScore key={name} name={name} score={score} />
+                  ))
+                ) : (
+                  <p className="text-gray-400">Category breakdown not available</p>
+                )}
               </div>
             </div>
 
