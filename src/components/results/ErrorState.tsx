@@ -1,6 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle } from "lucide-react";
 
 interface ErrorStateProps {
   title: string;
@@ -12,9 +13,13 @@ const ErrorState = ({ title, description }: ErrorStateProps) => {
   
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
-      <h2 className="text-xl text-red-500 font-bold mb-4">{title}</h2>
-      {description && <p className="text-gray-400 mb-4">{description}</p>}
-      <Button onClick={() => navigate('/')}>
+      <div className="relative mb-6">
+        <div className="absolute inset-0 rounded-full bg-red-500 blur-lg opacity-20"></div>
+        <AlertCircle className="h-12 w-12 text-red-500 relative z-10" />
+      </div>
+      <h2 className="text-2xl font-bold mb-2">{title}</h2>
+      {description && <p className="text-gray-400 mb-6 text-center max-w-md">{description}</p>}
+      <Button onClick={() => navigate('/')} variant="default" className="mt-2">
         {description ? 'Try Again' : 'Back to Home'}
       </Button>
     </div>

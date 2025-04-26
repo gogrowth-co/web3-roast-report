@@ -9,9 +9,12 @@ interface LoadingStateProps {
 const LoadingState = ({ message, description }: LoadingStateProps) => {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
-      <Loader2 className="h-8 w-8 animate-spin text-web3-orange mb-4" />
-      <h2 className="text-xl text-white font-bold">{message}</h2>
-      <p className="text-gray-400 mt-2">{description}</p>
+      <div className="relative">
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-500 blur-lg opacity-20"></div>
+        <Loader2 className="h-12 w-12 animate-spin text-purple-500 relative z-10" />
+      </div>
+      <h2 className="text-2xl font-bold mt-6 mb-2">{message}</h2>
+      <p className="text-gray-400">{description}</p>
     </div>
   );
 };

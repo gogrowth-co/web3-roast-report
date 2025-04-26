@@ -1,7 +1,6 @@
 
 import { useParams } from 'react-router-dom';
 import { useRoastStatus } from '@/hooks/useRoastStatus';
-import { Button } from "@/components/ui/button";
 import LoadingState from '@/components/results/LoadingState';
 import ErrorState from '@/components/results/ErrorState';
 import ResultsHeader from '@/components/results/ResultsHeader';
@@ -74,18 +73,23 @@ const Results = () => {
       <ResultsHeader />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Web3 ROAST Results</h1>
-              <p className="text-gray-400">Analysis for {roast.url}</p>
-            </div>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">Web3 ROAST Results</h1>
+          <p className="text-gray-400">Analysis for {roast.url}</p>
+        </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
             <FeedbackSection findings={analysis.findings} />
           </div>
+          <div className="lg:col-span-1">
+            <ScoreSummary score={analysis.score} categories={analysis.categories} />
+          </div>
+        </div>
 
-          <ScoreSummary score={analysis.score} categories={analysis.categories} />
+        <div className="mt-10 text-center text-gray-500 text-sm">
+          © 2025 Web3 ROAST. All rights reserved.
         </div>
       </div>
     </div>

@@ -10,7 +10,7 @@ const ResultsHeader = () => {
   const handleShare = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast("Link copied to clipboard", {
+      toast.success("Link copied to clipboard", {
         description: "You can now share these results with others"
       });
     } catch (err) {
@@ -28,11 +28,11 @@ const ResultsHeader = () => {
           Back to Home
         </Button>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={handleShare}>
+          <Button variant="outline" onClick={handleShare} className="border-zinc-700">
             <Share2 className="h-4 w-4 mr-2" />
             Share Results
           </Button>
-          <Button variant="secondary" disabled>
+          <Button variant="outline" className="border-zinc-700">
             <Download className="h-4 w-4 mr-2" />
             Download Report
           </Button>

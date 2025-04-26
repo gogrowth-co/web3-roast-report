@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { AlertTriangle, AlertCircle, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface FeedbackItemProps {
   category: string;
@@ -14,19 +15,25 @@ const FeedbackItem = ({ category, severity, feedback }: FeedbackItemProps) => {
       case 'high':
         return {
           bg: 'bg-red-500/10',
-          text: 'text-red-300',
+          border: 'border-red-500/20',
+          text: 'text-red-500',
+          badge: 'bg-red-500/20 text-red-500',
           icon: AlertCircle
         };
       case 'medium':
         return {
           bg: 'bg-yellow-500/10',
-          text: 'text-yellow-300',
+          border: 'border-yellow-500/20',
+          text: 'text-yellow-500',
+          badge: 'bg-yellow-500/20 text-yellow-500',
           icon: AlertTriangle
         };
       case 'low':
         return {
           bg: 'bg-blue-500/10',
-          text: 'text-blue-300',
+          border: 'border-blue-500/20',
+          text: 'text-blue-500',
+          badge: 'bg-blue-500/20 text-blue-500',
           icon: Info
         };
     }
@@ -34,17 +41,18 @@ const FeedbackItem = ({ category, severity, feedback }: FeedbackItemProps) => {
 
   const styles = getSeverityStyles();
   const Icon = styles.icon;
+  const severityLabel = severity === 'high' ? 'Critical issue - Fix immediately' : 
+                        severity === 'medium' ? 'Important issue - Should be addressed' : 
+                        'Minor issue - Consider improving';
 
   return (
-    <div className={`${styles.bg} rounded-lg p-4 mb-4`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Icon className={`h-5 w-5 ${styles.text}`} />
-          <span className="font-medium">{category}</span>
-        </div>
-        <span className={`text-xs font-medium ${styles.text} px-2 py-1 rounded capitalize`}>
-          {severity}
-        </span>
+    <div className={`${styles.bg} rounded-lg border ${styles.border} p-4 mb-4`}>
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className={`h-5 w-5 ${styles.text}`} />
+        <span className="font-medium">{category}</span>
+      </div>
+      <div className="mb-2">
+        <p className="text-sm text-gray-400">{severityLabel}</p>
       </div>
       <p className="text-gray-300 mt-2">{feedback}</p>
     </div>

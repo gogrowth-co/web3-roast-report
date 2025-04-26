@@ -11,10 +11,13 @@ const CategoryScore = ({ name, score }: CategoryScoreProps) => {
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-300">{name}</span>
-        <span className="text-sm text-gray-300">{score}%</span>
+        <span className="text-sm">{name}</span>
+        <span className="text-sm text-gray-400">{score}%</span>
       </div>
-      <Progress value={score} className="h-2 [&>div]:bg-web3-purple"/>
+      <Progress 
+        value={score} 
+        className="h-2 bg-gray-700/30 [&>div]:bg-gradient-to-r [&>div]:from-purple-500 [&>div]:to-purple-600"
+      />
     </div>
   );
 };
