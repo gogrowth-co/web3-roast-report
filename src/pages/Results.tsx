@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import ScoreCircle from '@/components/ScoreCircle';
 import CategoryScore from '@/components/CategoryScore';
 import FeedbackItem from '@/components/FeedbackItem';
 
-// Define interfaces for our AI analysis data structure
 interface Finding {
   category: string;
   severity: 'low' | 'medium' | 'high';
@@ -39,7 +37,6 @@ const Results = () => {
   const { data: roast, isLoading, error } = useRoastStatus(id);
 
   if (isLoading || (roast && roast.status === 'pending')) {
-    // Calculate which loading message to show based on time elapsed
     const getLoadingState = () => {
       if (!roast) return { message: "Initializing analysis...", description: "Getting things ready" };
       
@@ -88,7 +85,6 @@ const Results = () => {
       throw new Error('Invalid analysis data');
     }
 
-    // Validate the required fields exist and are of correct type
     if (!analysis || 
         typeof analysis.score !== 'number' || 
         typeof analysis.summary !== 'string' || 
@@ -112,16 +108,14 @@ const Results = () => {
         description: "You can now share these results with others"
       });
     } catch (err) {
-      toast("Failed to copy link", {
-        description: "Please try again",
-        type: "error"  // Use 'type' instead of 'variant'
+      toast.error("Failed to copy link", {
+        description: "Please try again"
       });
     }
   };
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-sm border-b border-zinc-800 bg-black/50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
@@ -143,14 +137,12 @@ const Results = () => {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             <div>
               <h1 className="text-3xl font-bold mb-2">Web3 ROAST Results</h1>
               <p className="text-gray-400">Analysis for {roast.url}</p>
             </div>
 
-            {/* Screenshot Section */}
             <div className="bg-zinc-900 rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Screenshot</h2>
               <p className="text-gray-400 mb-4">Full page capture of your Web3 project</p>
@@ -159,7 +151,6 @@ const Results = () => {
               </div>
             </div>
 
-            {/* Feedback Section */}
             <div className="bg-zinc-900 rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Detailed Feedback</h2>
               <p className="text-gray-400 mb-6">Brutally honest feedback to improve your Web3 project</p>
@@ -178,15 +169,11 @@ const Results = () => {
                     <FeedbackItem key={index} {...finding} />
                   ))}
                 </TabsContent>
-                
-                {/* Add other TabsContent components for filtered views */}
               </Tabs>
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-8">
-            {/* Score Card */}
             <div className="bg-zinc-900 rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Overall Performance</h2>
               <p className="text-gray-400 mb-6">How your Web3 project scores</p>
@@ -196,7 +183,6 @@ const Results = () => {
               </p>
             </div>
 
-            {/* Categories Card */}
             <div className="bg-zinc-900 rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Category Breakdown</h2>
               <p className="text-gray-400 mb-6">Performance by category</p>
@@ -207,7 +193,6 @@ const Results = () => {
               </div>
             </div>
 
-            {/* Next Steps Card */}
             <div className="bg-zinc-900 rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Next Steps</h2>
               <p className="text-gray-400 mb-6">Recommended actions</p>
