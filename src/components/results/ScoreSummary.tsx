@@ -1,6 +1,7 @@
 
 import ScoreCircle from '@/components/ScoreCircle';
 import CategoryScore from '@/components/CategoryScore';
+import { Button } from "@/components/ui/button";  // Add this import
 
 interface ScoreSummaryProps {
   score: number;
