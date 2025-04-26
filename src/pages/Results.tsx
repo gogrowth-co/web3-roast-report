@@ -1,5 +1,6 @@
+
 import { useParams, useNavigate } from 'react-router-dom';
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Share2, Download } from "lucide-react";
 import { useRoastStatus } from '@/hooks/useRoastStatus';
@@ -107,13 +108,11 @@ const Results = () => {
   const handleShare = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast({
-        title: "Link copied to clipboard",
+      toast("Link copied to clipboard", {
         description: "You can now share these results with others"
       });
     } catch (err) {
-      toast({
-        title: "Failed to copy link",
+      toast("Failed to copy link", {
         description: "Please try again",
         variant: "destructive"
       });
