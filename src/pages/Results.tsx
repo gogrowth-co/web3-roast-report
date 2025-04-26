@@ -114,7 +114,7 @@ const Results = () => {
     } catch (err) {
       toast("Failed to copy link", {
         description: "Please try again",
-        variant: "destructive"
+        type: "error"  // Use 'type' instead of 'variant'
       });
     }
   };
