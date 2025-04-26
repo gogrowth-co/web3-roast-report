@@ -1,8 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Share2, Download } from "lucide-react";
 import { useRoastStatus } from '@/hooks/useRoastStatus';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import ScoreCircle from '@/components/ScoreCircle';
+import CategoryScore from '@/components/CategoryScore';
+import FeedbackItem from '@/components/FeedbackItem';
 
 // Define interfaces for our AI analysis data structure
 interface Finding {
@@ -15,6 +19,7 @@ interface AIAnalysis {
   score: number;
   summary: string;
   findings: Finding[];
+  categories: { [key: string]: number };
 }
 
 const Results = () => {
@@ -99,45 +104,119 @@ const Results = () => {
     );
   }
 
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Link copied to clipboard",
+        description: "You can now share these results with others"
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to copy link",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-zinc-900 rounded-lg p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold">Analysis Results</h1>
-            <div className="text-4xl font-bold text-web3-orange">
-              {analysis.score}/100
-            </div>
-          </div>
-          <p className="text-gray-300 mb-6">{analysis.summary}</p>
-          <div className="space-y-6">
-            {analysis.findings.map((finding, index) => (
-              <div key={index} className="bg-zinc-800 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-400">
-                    {finding.category}
-                  </span>
-                  <span className={`
-                    px-2 py-1 rounded text-xs font-medium
-                    ${finding.severity === 'high' ? 'bg-red-500/20 text-red-300' :
-                      finding.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                      'bg-green-500/20 text-green-300'}
-                  `}>
-                    {finding.severity}
-                  </span>
-                </div>
-                <p className="text-gray-300">{finding.feedback}</p>
-              </div>
-            ))}
+    <div className="min-h-screen bg-black">
+      {/* Header */}
+      <header className="sticky top-0 z-50 backdrop-blur-sm border-b border-zinc-800 bg-black/50">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={handleShare}>
+              <Share2 className="h-4 w-4 mr-2" />
+              Share Results
+            </Button>
+            <Button variant="secondary" disabled>
+              <Download className="h-4 w-4 mr-2" />
+              Download Report
+            </Button>
           </div>
         </div>
-        <div className="text-center">
-          <Button 
-            onClick={() => navigate('/')} 
-            className="bg-web3-orange hover:bg-web3-orange/90"
-          >
-            Analyze Another Project
-          </Button>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Web3 ROAST Results</h1>
+              <p className="text-gray-400">Analysis for {roast.url}</p>
+            </div>
+
+            {/* Screenshot Section */}
+            <div className="bg-zinc-900 rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">Screenshot</h2>
+              <p className="text-gray-400 mb-4">Full page capture of your Web3 project</p>
+              <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                <img src={roast.screenshot_url} alt="Website Screenshot" className="w-full" />
+              </div>
+            </div>
+
+            {/* Feedback Section */}
+            <div className="bg-zinc-900 rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">Detailed Feedback</h2>
+              <p className="text-gray-400 mb-6">Brutally honest feedback to improve your Web3 project</p>
+              
+              <Tabs defaultValue="all" className="w-full">
+                <TabsList className="w-full justify-start">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="high">High Priority</TabsTrigger>
+                  <TabsTrigger value="medium">Medium</TabsTrigger>
+                  <TabsTrigger value="low">Low</TabsTrigger>
+                  <TabsTrigger value="positives">Positives</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="all" className="mt-6">
+                  {analysis.findings.map((finding, index) => (
+                    <FeedbackItem key={index} {...finding} />
+                  ))}
+                </TabsContent>
+                
+                {/* Add other TabsContent components for filtered views */}
+              </Tabs>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-8">
+            {/* Score Card */}
+            <div className="bg-zinc-900 rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">Overall Performance</h2>
+              <p className="text-gray-400 mb-6">How your Web3 project scores</p>
+              <ScoreCircle score={analysis.score} />
+              <p className="text-center text-gray-400 mt-6">
+                Your Web3 project is performing better than average.
+              </p>
+            </div>
+
+            {/* Categories Card */}
+            <div className="bg-zinc-900 rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">Category Breakdown</h2>
+              <p className="text-gray-400 mb-6">Performance by category</p>
+              <div className="space-y-6">
+                {Object.entries(analysis.categories).map(([name, score]) => (
+                  <CategoryScore key={name} name={name} score={score} />
+                ))}
+              </div>
+            </div>
+
+            {/* Next Steps Card */}
+            <div className="bg-zinc-900 rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">Next Steps</h2>
+              <p className="text-gray-400 mb-6">Recommended actions</p>
+              <div className="space-y-6">
+                <Button className="w-full">Upgrade to Expert Video Roast</Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
