@@ -7,8 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -21,6 +19,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const screenshotApiKey = Deno.env.get('SCREENSHOT_API_KEY')
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY')
+
+    if (!screenshotApiKey) {
+      throw new Error('Screenshot API key not configured')
+    }
     
     // Fetch the roast record to get the URL
     const roastResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}&select=url`, {
@@ -35,27 +38,26 @@ serve(async (req) => {
     
     console.log("Found roast with URL:", roast.url);
 
-    // Capture screenshot using a screenshot API service
-    console.log("Capturing screenshot for URL:", roast.url);
-    const screenshotResponse = await fetch(`https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(roast.url)}&full_page=true&format=jpeg&quality=90`, {
-      method: 'GET'
-    });
+    // Capture screenshot using APIFlash
+    const screenshotUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(roast.url)}&full_page=true&format=jpeg&quality=90&wait_until=page_loaded`;
+    console.log("Capturing screenshot with URL:", screenshotUrl);
+    
+    const screenshotResponse = await fetch(screenshotUrl);
 
     if (!screenshotResponse.ok) {
+      console.error("Screenshot API response:", await screenshotResponse.text());
       throw new Error(`Failed to capture screenshot: ${screenshotResponse.statusText}`);
     }
 
     const screenshotBlob = await screenshotResponse.blob();
-    
-    // Convert blob to base64 for storage
-    const arrayBuffer = await screenshotBlob.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-    const screenshotDataUrl = `data:image/jpeg;base64,${base64Image}`;
+    console.log("Screenshot captured successfully, size:", screenshotBlob.size);
     
     // Store the screenshot in Supabase Storage
-    console.log("Storing screenshot in Supabase for roastId:", roastId);
     const screenshotPath = `screenshots/${roastId}.jpg`;
-    const storageResponse = await fetch(`${supabaseUrl}/storage/v1/object/public/roast-screenshots/${screenshotPath}`, {
+    const storageUrl = `${supabaseUrl}/storage/v1/object/public/roast-screenshots/${screenshotPath}`;
+    
+    console.log("Storing screenshot in Supabase at path:", screenshotPath);
+    const storageResponse = await fetch(storageUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${supabaseKey}`,
@@ -67,30 +69,16 @@ serve(async (req) => {
     });
 
     if (!storageResponse.ok) {
-      console.error("Failed to store screenshot:", await storageResponse.text());
+      console.error("Storage API response:", await storageResponse.text());
       throw new Error('Failed to store screenshot');
     }
-    
-    // Update the roast record with the screenshot URL
-    const screenshotUrl = `${supabaseUrl}/storage/v1/object/public/roast-screenshots/${screenshotPath}`;
-    console.log("Updating roast record with screenshot URL:", screenshotUrl);
-    
-    await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'apikey': supabaseKey,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        screenshot_url: screenshotUrl
-      })
-    });
 
-    // Generate content analysis with OpenAI
-    console.log("Generating AI analysis for roastId:", roastId);
-
+    const finalScreenshotUrl = `${supabaseUrl}/storage/v1/object/public/roast-screenshots/${screenshotPath}`;
+    console.log("Screenshot stored successfully at:", finalScreenshotUrl);
+    
+    // Generate analysis with OpenAI
+    console.log("Starting OpenAI analysis for URL:", roast.url);
+    
     const systemPrompt = `You are a Web3 UX expert. Analyze the following Web3 project URL and provide detailed feedback on:
     1. User Experience
     2. Technical Implementation
@@ -100,9 +88,11 @@ serve(async (req) => {
     
     The user has submitted this URL: ${roast.url}
     
-    I have captured a screenshot of the website which you can use in your analysis.
+    I have captured a screenshot of the website for your reference at: ${finalScreenshotUrl}
     
-    Be direct and honest but professional. IMPORTANT: Your response must be valid JSON (not markdown) matching exactly this structure:
+    Please review both the URL and the screenshot to provide a comprehensive analysis.
+    
+    Be direct and honest but professional. Your response must be in this JSON structure:
     {
       "score": number from 0-100,
       "summary": "brief overall assessment",
@@ -120,62 +110,37 @@ serve(async (req) => {
         "Best Practices": number from 0-100,
         "Accessibility": number from 0-100
       }
-    }
-    `
+    }`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze this Web3 project: ${roast.url} with the screenshot at ${screenshotUrl}` }
+          { role: "user", content: `Please analyze this Web3 project at ${roast.url} with its screenshot at ${finalScreenshotUrl}` }
         ],
         response_format: { type: "json_object" }
       }),
-    })
+    });
 
-    const data = await response.json();
-    console.log("OpenAI response received for roastId:", roastId);
-    
-    // Extract the JSON content from the response
-    let analysisContent = data.choices[0].message.content;
-    let analysis;
-    
-    try {
-      // Try to parse the response directly
-      analysis = JSON.parse(analysisContent);
-      console.log("Successfully parsed OpenAI response for roastId:", roastId);
-    } catch (parseError) {
-      console.error("Error parsing OpenAI response:", parseError);
-      
-      // Fallback: Provide default analysis if parsing fails
-      analysis = {
-        score: 70,
-        summary: "Analysis completed with limited data",
-        findings: [
-          {
-            category: "UX",
-            severity: "medium",
-            feedback: "The application appears functional but we were unable to perform a detailed analysis."
-          }
-        ],
-        categories: {
-          "UX": 70,
-          "Technical": 70,
-          "Security": 70,
-          "Best Practices": 70,
-          "Accessibility": 70
-        }
-      };
+    if (!openAIResponse.ok) {
+      console.error("OpenAI API response:", await openAIResponse.text());
+      throw new Error('Failed to generate AI analysis');
     }
 
-    console.log("Updating database with analysis results for roastId:", roastId);
-    const supabaseResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}`, {
+    const aiData = await openAIResponse.json();
+    console.log("OpenAI analysis completed successfully");
+    
+    const analysis = JSON.parse(aiData.choices[0].message.content);
+
+    // Update roast record with results
+    console.log("Updating roast record with analysis results");
+    const updateResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${supabaseKey}`,
@@ -184,27 +149,30 @@ serve(async (req) => {
         'Prefer': 'return=minimal'
       },
       body: JSON.stringify({
+        screenshot_url: finalScreenshotUrl,
         ai_analysis: analysis,
         status: 'completed',
         score: analysis.score,
         completed_at: new Date().toISOString()
       })
-    })
+    });
 
-    if (!supabaseResponse.ok) {
-      console.error("Failed to update analysis in database:", await supabaseResponse.text());
-      throw new Error('Failed to update analysis in database')
+    if (!updateResponse.ok) {
+      console.error("Update API response:", await updateResponse.text());
+      throw new Error('Failed to update analysis in database');
     }
 
-    console.log("Analysis completed successfully for roastId:", roastId);
+    console.log("Analysis completed and stored successfully for roastId:", roastId);
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
+
   } catch (error) {
-    console.error('Error in analyze-web3 function:', error)
+    console.error('Error in analyze-web3 function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
-})
+});
+
