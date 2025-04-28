@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,45 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
+
+  // Function to handle post-login URL submission
+  const handlePendingUrl = async () => {
+    const pendingUrl = sessionStorage.getItem('pending_url');
+    if (!pendingUrl) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Authentication error");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('roasts')
+        .insert([
+          { 
+            url: pendingUrl,
+            status: 'pending',
+            user_id: session.user.id
+          }
+        ])
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      
+      // Clear the pending URL
+      sessionStorage.removeItem('pending_url');
+      
+      toast.success("Analysis started!");
+      navigate(`/results/${data.id}`);
+      
+    } catch (error: any) {
+      toast.error(error.message);
+      console.error(error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +72,7 @@ const Auth = () => {
         });
         if (error) throw error;
         toast.success("Successfully logged in!");
-        navigate('/');
+        await handlePendingUrl();
       }
     } catch (error: any) {
       toast.error(error.message);
