@@ -8,9 +8,14 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 interface ScoreSummaryProps {
   score: number;
   categories: { [key: string]: number };
+  summary: string;
 }
 
-const ScoreSummary = ({ score, categories }: ScoreSummaryProps) => {
+const ScoreSummary = ({ score, categories, summary }: ScoreSummaryProps) => {
+  // Find critical and important issues for next steps
+  const highPriorityText = summary.split('.')[0] || "Improve your value proposition";
+  const mediumPriorityText = summary.split('.')[1] || "Consider enhancing mobile responsiveness";
+
   return (
     <div className="space-y-6">
       <Card className="border-zinc-800 bg-zinc-900">
@@ -21,7 +26,7 @@ const ScoreSummary = ({ score, categories }: ScoreSummaryProps) => {
         <CardContent>
           <ScoreCircle score={score} />
           <p className="text-center text-gray-400 mt-6">
-            Your Web3 project is performing better than average.
+            {summary}
           </p>
         </CardContent>
       </Card>
@@ -56,7 +61,7 @@ const ScoreSummary = ({ score, categories }: ScoreSummaryProps) => {
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                  <span>Your value proposition is buried below the fold</span>
+                  <span>{highPriorityText}</span>
                 </div>
               </div>
             </div>
@@ -66,7 +71,7 @@ const ScoreSummary = ({ score, categories }: ScoreSummaryProps) => {
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
-                  <span>The wallet connection button is too small on mobile screens</span>
+                  <span>{mediumPriorityText}</span>
                 </div>
               </div>
             </div>

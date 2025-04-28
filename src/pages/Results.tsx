@@ -27,7 +27,7 @@ const Results = () => {
       
       return {
         message: "AI is analyzing your project...",
-        description: "This usually takes about 30 seconds"
+        description: "This usually takes about 30-60 seconds"
       };
     };
 
@@ -36,11 +36,16 @@ const Results = () => {
   }
 
   if (error) {
-    return <ErrorState title="Error loading results" />;
+    console.error("Error loading roast results:", error);
+    return <ErrorState title="Error loading results" description={error.message} />;
   }
 
   if (!roast) {
     return <ErrorState title="Results not found" />;
+  }
+
+  if (roast.status === 'failed') {
+    return <ErrorState title="Analysis failed" description="We couldn't complete the analysis of your project. Please try again." />;
   }
 
   let analysis: AIAnalysis;
@@ -50,16 +55,20 @@ const Results = () => {
     } else if (roast.ai_analysis && typeof roast.ai_analysis === 'object') {
       analysis = roast.ai_analysis as unknown as AIAnalysis;
     } else {
+      console.error("Invalid analysis data format:", roast.ai_analysis);
       throw new Error('Invalid analysis data');
     }
 
     if (!analysis || 
         typeof analysis.score !== 'number' || 
         typeof analysis.summary !== 'string' || 
-        !Array.isArray(analysis.findings)) {
+        !Array.isArray(analysis.findings) ||
+        !analysis.categories) {
+      console.error("Invalid analysis structure:", analysis);
       throw new Error('Invalid analysis data structure');
     }
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Error parsing analysis data:", error, roast.ai_analysis);
     return (
       <ErrorState 
         title="Analysis data is incomplete" 
@@ -84,7 +93,11 @@ const Results = () => {
             <FeedbackSection findings={analysis.findings} />
           </div>
           <div className="lg:col-span-1">
-            <ScoreSummary score={analysis.score} categories={analysis.categories} />
+            <ScoreSummary 
+              score={analysis.score} 
+              categories={analysis.categories}
+              summary={analysis.summary}
+            />
           </div>
         </div>
 

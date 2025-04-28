@@ -20,7 +20,9 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const screenshotApiKey = Deno.env.get('SCREENSHOT_API_KEY')
     
+    // Fetch the roast record to get the URL
     const roastResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}&select=url`, {
       headers: {
         'Authorization': `Bearer ${supabaseKey}`,
@@ -33,9 +35,61 @@ serve(async (req) => {
     
     console.log("Found roast with URL:", roast.url);
 
-    // Simulate work
-    await delay(30000);
-    console.log("Analysis processing completed for roastId:", roastId);
+    // Capture screenshot using a screenshot API service
+    console.log("Capturing screenshot for URL:", roast.url);
+    const screenshotResponse = await fetch(`https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(roast.url)}&full_page=true&format=jpeg&quality=90`, {
+      method: 'GET'
+    });
+
+    if (!screenshotResponse.ok) {
+      throw new Error(`Failed to capture screenshot: ${screenshotResponse.statusText}`);
+    }
+
+    const screenshotBlob = await screenshotResponse.blob();
+    
+    // Convert blob to base64 for storage
+    const arrayBuffer = await screenshotBlob.arrayBuffer();
+    const base64Image = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const screenshotDataUrl = `data:image/jpeg;base64,${base64Image}`;
+    
+    // Store the screenshot in Supabase Storage
+    console.log("Storing screenshot in Supabase for roastId:", roastId);
+    const screenshotPath = `screenshots/${roastId}.jpg`;
+    const storageResponse = await fetch(`${supabaseUrl}/storage/v1/object/public/roast-screenshots/${screenshotPath}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true'
+      },
+      body: screenshotBlob
+    });
+
+    if (!storageResponse.ok) {
+      console.error("Failed to store screenshot:", await storageResponse.text());
+      throw new Error('Failed to store screenshot');
+    }
+    
+    // Update the roast record with the screenshot URL
+    const screenshotUrl = `${supabaseUrl}/storage/v1/object/public/roast-screenshots/${screenshotPath}`;
+    console.log("Updating roast record with screenshot URL:", screenshotUrl);
+    
+    await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        screenshot_url: screenshotUrl
+      })
+    });
+
+    // Generate content analysis with OpenAI
+    console.log("Generating AI analysis for roastId:", roastId);
 
     const systemPrompt = `You are a Web3 UX expert. Analyze the following Web3 project URL and provide detailed feedback on:
     1. User Experience
@@ -43,6 +97,10 @@ serve(async (req) => {
     3. Security Considerations
     4. Web3 Best Practices
     5. Accessibility
+    
+    The user has submitted this URL: ${roast.url}
+    
+    I have captured a screenshot of the website which you can use in your analysis.
     
     Be direct and honest but professional. IMPORTANT: Your response must be valid JSON (not markdown) matching exactly this structure:
     {
@@ -75,7 +133,7 @@ serve(async (req) => {
         model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze this Web3 project: ${roast.url}` }
+          { role: "user", content: `Analyze this Web3 project: ${roast.url} with the screenshot at ${screenshotUrl}` }
         ],
         response_format: { type: "json_object" }
       }),
