@@ -17,7 +17,10 @@ const Auth = () => {
   // Function to handle post-login URL submission
   const handlePendingUrl = async () => {
     const pendingUrl = sessionStorage.getItem('pending_url');
-    if (!pendingUrl) return;
+    if (!pendingUrl) {
+      navigate('/');
+      return;
+    }
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -50,6 +53,7 @@ const Auth = () => {
     } catch (error: any) {
       toast.error(error.message);
       console.error(error);
+      navigate('/');
     }
   };
 

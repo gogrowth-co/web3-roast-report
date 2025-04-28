@@ -16,6 +16,7 @@ serve(async (req) => {
 
   try {
     const { roastId } = await req.json()
+    console.log("Starting analysis for roastId:", roastId);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -29,8 +30,12 @@ serve(async (req) => {
     
     const [roast] = await roastResponse.json();
     if (!roast) throw new Error('Roast not found');
+    
+    console.log("Found roast with URL:", roast.url);
 
+    // Simulate work
     await delay(30000);
+    console.log("Analysis processing completed for roastId:", roastId);
 
     const systemPrompt = `You are a Web3 UX expert. Analyze the following Web3 project URL and provide detailed feedback on:
     1. User Experience
@@ -77,7 +82,7 @@ serve(async (req) => {
     })
 
     const data = await response.json();
-    console.log("OpenAI response:", data.choices[0].message.content);
+    console.log("OpenAI response received for roastId:", roastId);
     
     // Extract the JSON content from the response
     let analysisContent = data.choices[0].message.content;
@@ -86,6 +91,7 @@ serve(async (req) => {
     try {
       // Try to parse the response directly
       analysis = JSON.parse(analysisContent);
+      console.log("Successfully parsed OpenAI response for roastId:", roastId);
     } catch (parseError) {
       console.error("Error parsing OpenAI response:", parseError);
       
@@ -110,6 +116,7 @@ serve(async (req) => {
       };
     }
 
+    console.log("Updating database with analysis results for roastId:", roastId);
     const supabaseResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}`, {
       method: 'PATCH',
       headers: {
@@ -127,14 +134,16 @@ serve(async (req) => {
     })
 
     if (!supabaseResponse.ok) {
+      console.error("Failed to update analysis in database:", await supabaseResponse.text());
       throw new Error('Failed to update analysis in database')
     }
 
+    console.log("Analysis completed successfully for roastId:", roastId);
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in analyze-web3 function:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

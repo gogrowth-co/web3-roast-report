@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const UrlForm = () => {
   const [url, setUrl] = useState('');
@@ -35,9 +36,33 @@ const UrlForm = () => {
     setIsLoading(true);
     
     try {
-      // Store the URL in sessionStorage before redirecting to auth
-      sessionStorage.setItem('pending_url', url.trim());
-      navigate('/auth');
+      // Check if the user is logged in
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // If not logged in, store URL and redirect to auth
+        sessionStorage.setItem('pending_url', url.trim());
+        navigate('/auth');
+        return;
+      }
+
+      // If logged in, create the roast directly
+      const { data, error } = await supabase
+        .from('roasts')
+        .insert([
+          { 
+            url: url.trim(),
+            status: 'pending',
+            user_id: session.user.id
+          }
+        ])
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      
+      toast.success("Analysis started!");
+      navigate(`/results/${data.id}`);
       
     } catch (error: any) {
       toast.error(error.message);
