@@ -1,4 +1,3 @@
-
 import { useParams } from 'react-router-dom';
 import { useRoastStatus } from '@/hooks/useRoastStatus';
 import LoadingState from '@/components/results/LoadingState';
@@ -85,11 +84,23 @@ const Results = () => {
 
     analysis = transformedAnalysis as unknown as AIAnalysis;
   } catch (error: any) {
-    console.error("Error parsing analysis data:", error, roast.ai_analysis);
+    console.warn("Analysis parse warning or still in progress:", error);
+    
+    // Only show error UI if the roast truly failed
+    if (roast.status === 'failed') {
+      return (
+        <ErrorState
+          title="Analysis failed"
+          description="We couldn't complete the analysis. Please try again."
+        />
+      );
+    }
+    
+    // Otherwise, show loading spinner until status flips to 'completed'
     return (
-      <ErrorState 
-        title="Analysis data is incomplete" 
-        description="The analysis didn't return the expected results." 
+      <LoadingState
+        message="Processing analysis data..."
+        description="Please wait while we finalize your results."
       />
     );
   }
