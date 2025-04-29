@@ -93,9 +93,9 @@ serve(async (req) => {
       throw new Error('Screenshot storage bucket not found. Please create it first.');
     }
 
-    // Capture screenshot using APIFlash with proper error handling
+    // Capture screenshot using APIFlash with proper 1024x768 dimensions
     console.log("Capturing screenshot for URL:", roast.url);
-    const screenshotUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(roast.url)}&full_page=true&format=jpeg&quality=90&wait_until=page_loaded`;
+    const screenshotUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(roast.url)}&format=jpeg&quality=90&dimension=1024x768`;
     
     const screenshotResponse = await fetch(screenshotUrl);
 
@@ -141,38 +141,29 @@ serve(async (req) => {
     // Generate analysis with OpenAI
     console.log("Starting OpenAI analysis for URL:", roast.url);
     
-    const systemPrompt = `You are a Web3 UX expert. Analyze the following Web3 project URL and provide detailed feedback on:
-    1. User Experience
-    2. Technical Implementation
-    3. Security Considerations
-    4. Web3 Best Practices
-    5. Accessibility
-    
-    The user has submitted this URL: ${roast.url}
-    
-    I have captured a screenshot of the website for your reference at: ${finalScreenshotUrl}
-    
-    Please review both the URL and the screenshot to provide a comprehensive analysis.
-    
-    Be direct and honest but professional. Your response must be in this JSON structure:
-    {
-      "score": number from 0-100,
-      "summary": "brief overall assessment",
-      "findings": [
-        {
-          "category": "UX/Technical/Security/Best Practices/Accessibility",
-          "severity": "low/medium/high",
-          "feedback": "detailed explanation"
-        }
-      ],
-      "categories": {
-        "UX": number from 0-100,
-        "Technical": number from 0-100,
-        "Security": number from 0-100,
-        "Best Practices": number from 0-100,
-        "Accessibility": number from 0-100
-      }
-    }`;
+    const systemPrompt = `You are a Web3 UX expert. Analyze ${roast.url} + screenshot at ${finalScreenshotUrl}.
+Return exactly one JSON object:
+{
+"overallScore":0-100,
+"categoryScores":{
+"Value proposition clarity":0-100,
+"Web3 terminology usage":0-100,
+"Technical explanation quality":0-100,
+"Trust signals & security indicators":0-100,
+"Call-to-action effectiveness":0-100,
+"Mobile responsiveness":0-100,
+"Web3 integration visibility":0-100
+},
+"feedback":[
+{"category":"Value proposition clarity","severity":"high|medium|low","feedback":"...actionable..."},
+{"category":"Web3 terminology usage","severity":"high|medium|low","feedback":"...actionable..."},
+{"category":"Technical explanation quality","severity":"high|medium|low","feedback":"...actionable..."},
+{"category":"Trust signals & security indicators","severity":"high|medium|low","feedback":"...actionable..."},
+{"category":"Call-to-action effectiveness","severity":"high|medium|low","feedback":"...actionable..."},
+{"category":"Mobile responsiveness","severity":"high|medium|low","feedback":"...actionable..."},
+{"category":"Web3 integration visibility","severity":"high|medium|low","feedback":"...actionable..."}
+]
+}`;
 
     console.log("Sending request to OpenAI");
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -186,8 +177,7 @@ serve(async (req) => {
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Please analyze this Web3 project at ${roast.url} with its screenshot at ${finalScreenshotUrl}` }
-        ],
-        response_format: { type: "json_object" }
+        ]
       }),
     });
 
@@ -210,9 +200,15 @@ serve(async (req) => {
       analysis = JSON.parse(aiData.choices[0].message.content);
       console.log("Analysis parsed successfully");
       
-      if (!analysis.score || !analysis.summary || !analysis.findings || !analysis.categories) {
-        console.error("Analysis missing required fields:", analysis);
-        throw new Error('Incomplete analysis data from OpenAI');
+      // Validate required fields
+      if (!analysis.overallScore) {
+        throw new Error('Incomplete analysis data: missing overallScore');
+      }
+      if (!analysis.categoryScores) {
+        throw new Error('Incomplete analysis data: missing categoryScores');
+      }
+      if (!analysis.feedback || !Array.isArray(analysis.feedback)) {
+        throw new Error('Incomplete analysis data: missing feedback');
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError, aiData.choices[0].message.content);
@@ -225,7 +221,7 @@ serve(async (req) => {
       screenshot_url: finalScreenshotUrl,
       ai_analysis: analysis,
       status: 'completed',
-      score: analysis.score,
+      score: analysis.overallScore,
       completed_at: new Date().toISOString()
     };
     

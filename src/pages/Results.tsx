@@ -59,14 +59,31 @@ const Results = () => {
       throw new Error('Invalid analysis data');
     }
 
+    // Adapt the new API structure to our existing components
     if (!analysis || 
-        typeof analysis.score !== 'number' || 
-        typeof analysis.summary !== 'string' || 
-        !Array.isArray(analysis.findings) ||
-        !analysis.categories) {
+        typeof analysis.overallScore !== 'number' || 
+        !analysis.categoryScores ||
+        !Array.isArray(analysis.feedback)) {
       console.error("Invalid analysis structure:", analysis);
       throw new Error('Invalid analysis data structure');
     }
+
+    // Transform the data to match our component expectations
+    const transformedAnalysis = {
+      score: analysis.overallScore,
+      summary: analysis.feedback
+        .filter(f => f.severity === 'high')
+        .map(f => f.feedback)
+        .join('. ') || 'Web3 project analyzed successfully',
+      findings: analysis.feedback.map(f => ({
+        category: f.category,
+        severity: f.severity,
+        feedback: f.feedback
+      })),
+      categories: analysis.categoryScores
+    };
+
+    analysis = transformedAnalysis as unknown as AIAnalysis;
   } catch (error: any) {
     console.error("Error parsing analysis data:", error, roast.ai_analysis);
     return (

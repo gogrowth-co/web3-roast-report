@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import { toast } from "@/components/ui/sonner";
 
 // Define the possible states for the roast analysis
-type RoastStatus = 'initializing' | 'pending' | 'completed' | 'failed';
+type RoastStatus = 'initializing' | 'pending' | 'processing' | 'completed' | 'failed';
 
 export const useRoastStatus = (roastId: string) => {
   const [isAnalysisStarted, setIsAnalysisStarted] = useState(false);
 
-  // Trigger the analysis when component mounts
+  // Trigger the analysis when component mounts without blocking
   useEffect(() => {
     const startAnalysis = async () => {
       if (isAnalysisStarted) return;
@@ -19,19 +19,27 @@ export const useRoastStatus = (roastId: string) => {
         console.log("Starting analysis for roastId:", roastId);
         setIsAnalysisStarted(true);
         
-        const response = await supabase.functions.invoke('analyze-web3', {
+        // Call the analyze-web3 function without awaiting
+        supabase.functions.invoke('analyze-web3', {
           body: { 
             roastId,
             timestamp: new Date().toISOString()
           }
-        });
-        
-        if (response.error) {
-          console.error('Failed to start analysis:', response.error);
+        })
+        .then((response) => {
+          if (response.error) {
+            console.error('Analysis failed:', response.error);
+            toast.error("Failed to start analysis. Please try again.");
+            setIsAnalysisStarted(false);
+          } else {
+            console.log("Analysis started successfully:", response.data);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to start analysis:', error);
           toast.error("Failed to start analysis. Please try again.");
-        } else {
-          console.log("Analysis started successfully:", response.data);
-        }
+          setIsAnalysisStarted(false);
+        });
       } catch (error) {
         console.error('Failed to start analysis:', error);
         toast.error("Failed to start analysis. Please try again.");
@@ -42,7 +50,7 @@ export const useRoastStatus = (roastId: string) => {
     startAnalysis();
   }, [roastId, isAnalysisStarted]);
 
-  // Poll for status updates every 5 seconds
+  // Poll for status updates every 3 seconds
   return useQuery({
     queryKey: ['roast', roastId],
     queryFn: async () => {
@@ -60,6 +68,6 @@ export const useRoastStatus = (roastId: string) => {
       console.log("Roast data:", data);
       return data;
     },
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 3000, // Poll every 3 seconds for faster updates
   });
 };

@@ -10,4 +10,13 @@ export interface AIAnalysis {
   summary: string;
   findings: Finding[];
   categories: { [key: string]: number };
+  
+  // New API fields
+  overallScore?: number;
+  categoryScores?: { [key: string]: number };
+  feedback?: {
+    category: string;
+    severity: 'low' | 'medium' | 'high';
+    feedback: string;
+  }[];
 }
