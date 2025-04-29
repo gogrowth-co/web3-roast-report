@@ -19,4 +19,5 @@ export interface AIAnalysis {
     severity: 'low' | 'medium' | 'high';
     feedback: string;
   }[];
+  error?: string;
 }

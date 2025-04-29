@@ -65,7 +65,7 @@ const Results = () => {
         !analysis.categoryScores ||
         !Array.isArray(analysis.feedback)) {
       console.error("Invalid analysis structure:", analysis);
-      throw new Error('Invalid analysis data structure');
+      return <LoadingState message="Processing analysis data..." description="Please wait while we process your results" />;
     }
 
     // Transform the data to match our component expectations
