@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Results from "./pages/Results";
+import OrderComplete from "./pages/OrderComplete";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,10 @@ const App = () => {
             <Route 
               path="/results/:id" 
               element={session ? <Results /> : <Navigate to="/auth" replace />} 
+            />
+            <Route 
+              path="/order-complete" 
+              element={session ? <OrderComplete /> : <Navigate to="/auth" replace />} 
             />
             <Route path="*" element={<NotFound />} />
           </Routes>

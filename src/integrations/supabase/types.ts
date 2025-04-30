@@ -44,6 +44,36 @@ export type Database = {
           },
         ]
       }
+      purchases: {
+        Row: {
+          amount: number | null
+          created_at: string
+          id: string
+          price_id: string | null
+          session_id: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          id?: string
+          price_id?: string | null
+          session_id?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          id?: string
+          price_id?: string | null
+          session_id?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       roasts: {
         Row: {
           ai_analysis: Json | null

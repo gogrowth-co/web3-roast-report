@@ -1,1 +1,32 @@
+
 project_id = "qdttapddgbzmmxhbmbfl"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+port = 54323
+
+[studio]
+enabled = true
+port = 54325
+
+[functions]
+[functions.stripe-webhook]
+verify_jwt = false
