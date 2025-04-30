@@ -1,4 +1,3 @@
-
 import { useParams } from 'react-router-dom';
 import { useRoastStatus } from '@/hooks/useRoastStatus';
 import LoadingState from '@/components/results/LoadingState';
@@ -67,7 +66,6 @@ const Results = () => {
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
-          priceId: 'price_1PbM23M38oJr9IpQCh30r0OI', // Replace with your actual price ID
           roastId: id,
         }
       });
@@ -99,7 +97,6 @@ const Results = () => {
       throw new Error('Invalid analysis data');
     }
 
-    // Adapt the new API structure to our existing components
     if (!analysis || 
         typeof analysis.overallScore !== 'number' || 
         !analysis.categoryScores ||
@@ -108,7 +105,6 @@ const Results = () => {
       return <LoadingState message="Processing analysis data..." description="Please wait while we process your results" />;
     }
 
-    // Transform the data to match our component expectations
     const transformedAnalysis = {
       score: analysis.overallScore,
       summary: analysis.feedback
@@ -127,7 +123,6 @@ const Results = () => {
   } catch (error: any) {
     console.warn("Analysis parse warning or still in progress:", error);
     
-    // Only show error UI if the roast truly failed
     if (roast.status === 'failed') {
       return (
         <ErrorState
@@ -137,7 +132,6 @@ const Results = () => {
       );
     }
     
-    // Otherwise, show loading spinner until status flips to 'completed'
     return (
       <LoadingState
         message="Processing analysis data..."
@@ -161,31 +155,29 @@ const Results = () => {
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
             <FeedbackSection findings={analysis.findings} />
           </div>
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
             <ScoreSummary 
               score={analysis.score} 
               categories={analysis.categories}
               summary={analysis.summary}
             />
 
-            <div className="mt-6">
-              <Button
-                className="w-full group relative overflow-hidden"
-                variant="default"
-                size="lg"
-                disabled={isUpgrading}
-                onClick={handleUpgradeClick}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative flex items-center justify-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  <span>{isUpgrading ? 'Processing...' : 'Upgrade to Expert Video Roast'}</span>
-                </div>
-              </Button>
-              <p className="text-sm text-gray-400 text-center mt-2">
-                Get expert personalized video feedback
-              </p>
-            </div>
+            <Button
+              className="w-full group relative overflow-hidden"
+              variant="default"
+              size="lg"
+              disabled={isUpgrading}
+              onClick={handleUpgradeClick}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
+              <div className="relative flex items-center justify-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                <span>{isUpgrading ? 'Processing...' : 'Upgrade to Expert Video Roast'}</span>
+              </div>
+            </Button>
+            <p className="text-sm text-gray-400 text-center">
+              Get expert personalized video feedback
+            </p>
           </div>
         </div>
 

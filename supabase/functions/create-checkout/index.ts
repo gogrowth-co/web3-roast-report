@@ -23,10 +23,16 @@ serve(async (req) => {
     
     // Parse request body
     const requestData = await req.json();
-    const { priceId } = requestData;
+    const { roastId } = requestData;
+    
+    if (!roastId) {
+      throw new Error('Missing roast ID');
+    }
 
+    // Get price ID from environment
+    const priceId = Deno.env.get('STRIPE_PRICE_ID');
     if (!priceId) {
-      throw new Error('Missing price ID');
+      throw new Error('STRIPE_PRICE_ID is not configured');
     }
 
     // Initialize Supabase client with service role key for admin operations
@@ -60,7 +66,7 @@ serve(async (req) => {
       ],
       mode: 'payment',
       success_url: `${req.headers.get('origin')}/order-complete`,
-      cancel_url: `${req.headers.get('origin')}/results/${requestData.roastId}`,
+      cancel_url: `${req.headers.get('origin')}/results/${roastId}`,
     });
 
     // Save the checkout session to the purchases table

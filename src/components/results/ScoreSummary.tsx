@@ -1,7 +1,6 @@
 
 import ScoreCircle from '@/components/ScoreCircle';
 import CategoryScore from '@/components/CategoryScore';
-import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
@@ -75,10 +74,6 @@ const ScoreSummary = ({ score, categories, summary }: ScoreSummaryProps) => {
                 </div>
               </div>
             </div>
-            
-            <Button className="w-full mt-6" variant="default">
-              Upgrade to Expert Video Roast
-            </Button>
           </div>
         </CardContent>
       </Card>
