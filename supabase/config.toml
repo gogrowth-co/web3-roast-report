@@ -9,6 +9,9 @@ schemas = ["public", "storage", "graphql_public"]
 [db]
 port = 54322
 
+[db.extensions]
+pg_net = true
+
 [realtime]
 enabled = true
 
