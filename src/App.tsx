@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Results from "./pages/Results";
 import OrderComplete from "./pages/OrderComplete";
+import TestWebhook from "./pages/TestWebhook";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => {
               path="/order-complete" 
               element={session ? <OrderComplete /> : <Navigate to="/auth" replace />} 
             />
+            <Route path="/test-webhook" element={<TestWebhook />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
