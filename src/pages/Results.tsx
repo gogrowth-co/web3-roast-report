@@ -1,3 +1,4 @@
+
 import { useParams } from 'react-router-dom';
 import { useRoastStatus } from '@/hooks/useRoastStatus';
 import LoadingState from '@/components/results/LoadingState';
@@ -11,7 +12,7 @@ import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import type { AIAnalysis } from '@/types/analysis';
 
 const Results = () => {

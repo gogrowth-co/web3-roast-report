@@ -29,11 +29,10 @@ serve(async (req) => {
       throw new Error('Missing roast ID');
     }
 
-    // Get price ID from environment
-    const priceId = Deno.env.get('STRIPE_PRICE_ID');
-    if (!priceId) {
-      throw new Error('STRIPE_PRICE_ID is not configured');
-    }
+    // Initialize Stripe with the secret key from environment variables
+    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+      apiVersion: '2023-10-16',
+    });
 
     // Initialize Supabase client with service role key for admin operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -42,7 +41,7 @@ serve(async (req) => {
       auth: { persistSession: false }
     });
 
-    // Get user data
+    // Get user data from the token
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
@@ -50,17 +49,12 @@ serve(async (req) => {
       throw new Error('Error fetching user or user not found');
     }
 
-    // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
-      apiVersion: '2023-10-16',
-    });
-
     // Create a Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       customer_email: user.email,
       line_items: [
         {
-          price: priceId,
+          price: 'price_1RJbftD41aNWIHmddbD7SvEo', // Using the provided Price ID
           quantity: 1,
         },
       ],
@@ -75,7 +69,7 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         session_id: session.id,
-        price_id: priceId,
+        price_id: 'price_1RJbftD41aNWIHmddbD7SvEo',
         status: 'pending',
         amount: session.amount_total ? session.amount_total / 100 : 0,
       });
