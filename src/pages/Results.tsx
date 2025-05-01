@@ -8,46 +8,17 @@ import ScreenshotSection from '@/components/results/ScreenshotSection';
 import FeedbackSection from '@/components/results/FeedbackSection';
 import ScoreSummary from '@/components/results/ScoreSummary';
 import { useSession } from '@/hooks/useSession';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import type { AIAnalysis } from '@/types/analysis';
 
 const Results = () => {
   const { id } = useParams();
   const { user } = useSession();
   const [isUpgrading, setIsUpgrading] = useState(false);
-  const resultsRef = useRef<HTMLDivElement>(null);
-
-  const handleShare = () => {
-    const url = window.location.href;
-    if (navigator.share) {
-      navigator.share({ title: document.title, url }).catch(console.error);
-    } else {
-      navigator.clipboard.writeText(url);
-      toast.success("Link copied to clipboard!");
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!resultsRef.current) return;
-    try {
-      const canvas = await html2canvas(resultsRef.current, { scale: 2, useCORS: true });
-      const img = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ unit: "pt", format: "a4" });
-      const w = pdf.internal.pageSize.getWidth();
-      const h = (canvas.height * w) / canvas.width;
-      pdf.addImage(img, "PNG", 0, 0, w, h);
-      pdf.save("web3-roast-results.pdf");
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to generate PDF");
-    }
-  };
 
   if (!id) {
     return <ErrorState title="Invalid roast ID" />;
@@ -180,12 +151,7 @@ const Results = () => {
           <p className="text-gray-400">Analysis for {roast.url}</p>
         </div>
 
-        <div className="flex justify-end space-x-2 mb-4">
-          <Button onClick={handleShare} variant="outline" className="border-zinc-700">Share Results</Button>
-          <Button onClick={handleDownload} variant="outline" className="border-zinc-700">Download Report</Button>
-        </div>
-
-        <div ref={resultsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
             <FeedbackSection findings={analysis.findings} />
