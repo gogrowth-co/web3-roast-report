@@ -74,6 +74,30 @@ export type Database = {
         }
         Relationships: []
       }
+      roast_results: {
+        Row: {
+          created_at: string | null
+          id: string
+          result_json: Json
+          roast_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          result_json: Json
+          roast_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          result_json?: Json
+          roast_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       roasts: {
         Row: {
           ai_analysis: Json | null

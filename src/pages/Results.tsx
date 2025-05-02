@@ -8,7 +8,7 @@ import ScreenshotSection from '@/components/results/ScreenshotSection';
 import FeedbackSection from '@/components/results/FeedbackSection';
 import ScoreSummary from '@/components/results/ScoreSummary';
 import { useSession } from '@/hooks/useSession';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
@@ -19,11 +19,166 @@ const Results = () => {
   const { id } = useParams();
   const { user } = useSession();
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [persistedResult, setPersistedResult] = useState<AIAnalysis | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Attempt to fetch persisted result from roast_results table
+  useEffect(() => {
+    const fetchPersistedResult = async () => {
+      if (!id) return;
+      
+      try {
+        console.log("Fetching persisted roast result:", id);
+        const { data, error } = await supabase.functions.invoke('get-roast', {
+          body: { id }
+        });
+
+        if (error) {
+          console.error("Error fetching persisted result:", error);
+          return;
+        }
+
+        if (data) {
+          console.log("Found persisted roast result:", data);
+          setPersistedResult(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch persisted result:", error);
+      }
+    };
+
+    if (id) {
+      fetchPersistedResult();
+    }
+  }, [id]);
+
+  // Share functionality
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copied to clipboard", {
+        description: "You can now share these results with others"
+      });
+    } catch (err) {
+      toast.error("Failed to copy link", {
+        description: "Please try again"
+      });
+    }
+  };
+
+  // Download functionality
+  const handleDownload = async () => {
+    if (!resultsRef.current) {
+      toast.error("Nothing to download");
+      return;
+    }
+
+    toast.info("Generating PDF report...");
+
+    // Dynamic import to avoid the build error
+    try {
+      const html2canvasModule = await import('html2canvas');
+      const jsPDFModule = await import('jspdf');
+      
+      const html2canvas = html2canvasModule.default;
+      const jsPDF = jsPDFModule.default;
+
+      const canvas = await html2canvas(resultsRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        allowTaint: true
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "px",
+        format: "a4"
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      
+      pdf.addImage(imgData, "PNG", imgX, 0, imgWidth * ratio, imgHeight * ratio);
+      pdf.save("web3-roast-results.pdf");
+      
+      toast.success("PDF report generated");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF report");
+    }
+  };
 
   if (!id) {
     return <ErrorState title="Invalid roast ID" />;
   }
 
+  // If we have a persisted result, use that instead of fetching from the roast status
+  if (persistedResult) {
+    return (
+      <div className="min-h-screen bg-black">
+        <ResultsHeader />
+
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold mb-2">Web3 ROAST Results</h1>
+            <p className="text-gray-400">Analysis for {persistedResult.url}</p>
+          </div>
+
+          <div className="flex justify-end space-x-2 mb-4">
+            <Button variant="outline" onClick={handleShare} className="border-zinc-700">
+              Share Results
+            </Button>
+            <Button variant="outline" onClick={handleDownload} className="border-zinc-700">
+              Download Report
+            </Button>
+          </div>
+
+          <div ref={resultsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <ScreenshotSection screenshotUrl={persistedResult.screenshot_url} />
+              <FeedbackSection findings={persistedResult.findings} />
+            </div>
+            <div className="lg:col-span-1 space-y-6">
+              <ScoreSummary 
+                score={persistedResult.score} 
+                categories={persistedResult.categories}
+                summary={persistedResult.summary}
+              />
+
+              <Button
+                className="w-full group relative overflow-hidden"
+                variant="default"
+                size="lg"
+                disabled={isUpgrading}
+                onClick={handleUpgradeClick}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative flex items-center justify-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  <span>{isUpgrading ? 'Processing...' : 'Upgrade to Expert Video Roast'}</span>
+                </div>
+              </Button>
+              <p className="text-sm text-gray-400 text-center">
+                Get expert personalized video feedback
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-10 text-center text-gray-500 text-sm">
+            © 2025 Web3 ROAST. All rights reserved.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If we don't have a persisted result, use the roast status hook
   const { data: roast, isLoading, error } = useRoastStatus(id);
 
   if (isLoading || (roast && roast.status === 'pending')) {
@@ -121,6 +276,25 @@ const Results = () => {
     };
 
     analysis = transformedAnalysis as unknown as AIAnalysis;
+
+    // Store result in roast_results for future access if user is logged in
+    if (user) {
+      const storeResult = async () => {
+        try {
+          await supabase.functions.invoke('analyze-web3', {
+            body: { 
+              roastId: id,
+              userId: user.id
+            }
+          });
+        } catch (error) {
+          console.error("Failed to store result:", error);
+          // Non-blocking error - we can still show the result
+        }
+      };
+
+      storeResult();
+    }
   } catch (error: any) {
     console.warn("Analysis parse warning or still in progress:", error);
     
@@ -151,7 +325,16 @@ const Results = () => {
           <p className="text-gray-400">Analysis for {roast.url}</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex justify-end space-x-2 mb-4">
+          <Button variant="outline" onClick={handleShare} className="border-zinc-700">
+            Share Results
+          </Button>
+          <Button variant="outline" onClick={handleDownload} className="border-zinc-700">
+            Download Report
+          </Button>
+        </div>
+
+        <div ref={resultsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
             <FeedbackSection findings={analysis.findings} />
