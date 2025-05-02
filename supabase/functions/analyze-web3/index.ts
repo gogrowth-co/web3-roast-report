@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { roastId, userId } = await req.json()
+    const { roastId } = await req.json()
     console.log("Starting analysis for roastId:", roastId);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -36,9 +35,6 @@ serve(async (req) => {
       console.error('OpenAI API key not configured');
       throw new Error('OpenAI API key not configured');
     }
-
-    // Create Supabase admin client
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
     
     // Update status to processing
     console.log("Updating roast status to 'processing'");
@@ -248,48 +244,8 @@ Return exactly one JSON object:
       throw new Error(`Failed to update analysis in database: ${errorText}`);
     }
 
-    // Store the result in roast_results table for persistence and sharing
-    console.log("Storing result in roast_results table");
-    const transformedAnalysis = {
-      score: analysis.overallScore,
-      screenshot_url: finalScreenshotUrl,
-      url: roast.url,
-      summary: analysis.feedback
-        .filter(f => f.severity === 'high')
-        .map(f => f.feedback)
-        .join('. ') || 'Web3 project analyzed successfully',
-      findings: analysis.feedback.map(f => ({
-        category: f.category,
-        severity: f.severity,
-        feedback: f.feedback
-      })),
-      categories: analysis.categoryScores
-    };
-
-    // Insert into roast_results table
-    const { data: newRow, error: insertError } = await supabaseAdmin
-      .from('roast_results')
-      .insert([{
-        user_id: userId,
-        roast_id: roastId,
-        result_json: transformedAnalysis
-      }])
-      .select('id')
-      .single();
-
-    if (insertError) {
-      console.error("Failed to insert into roast_results:", insertError);
-      // Continue execution even if storing in roast_results fails
-    }
-
-    const resultId = newRow?.id;
-    console.log("Analysis completed and stored successfully. Result ID:", resultId);
-
-    return new Response(JSON.stringify({ 
-      success: true,
-      id: resultId,
-      score: analysis.overallScore
-    }), {
+    console.log("Analysis completed and stored successfully for roastId:", roastId);
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

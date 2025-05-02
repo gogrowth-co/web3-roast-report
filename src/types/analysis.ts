@@ -10,7 +10,6 @@ export interface AIAnalysis {
   summary: string;
   findings: Finding[];
   categories: { [key: string]: number };
-  screenshot_url?: string;
   
   // New API fields
   overallScore?: number;
