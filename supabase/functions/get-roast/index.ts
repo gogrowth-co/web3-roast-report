@@ -17,9 +17,9 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Get ID from query params
-    const url = new URL(req.url);
-    const id = url.searchParams.get("id");
+    // Get request body
+    const body = await req.json();
+    const id = body.id;
     
     if (!id) {
       return new Response(JSON.stringify({ error: "Missing id parameter" }), {

@@ -11,7 +11,7 @@ import { useSession } from '@/hooks/useSession';
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Share2, Download } from "lucide-react";
 import { toast } from "sonner";
 import type { AIAnalysis } from '@/types/analysis';
 
@@ -66,51 +66,41 @@ const Results = () => {
     }
   };
 
-  // Download functionality
-  const handleDownload = async () => {
-    if (!resultsRef.current) {
-      toast.error("Nothing to download");
+  // Download functionality - temporarily removed
+  const handleDownload = () => {
+    toast.info("PDF export coming soon", {
+      description: "This feature is currently under development"
+    });
+  };
+
+  const handleUpgradeClick = async () => {
+    if (!user) {
+      toast.error("You must be logged in to upgrade");
       return;
     }
 
-    toast.info("Generating PDF report...");
+    setIsUpgrading(true);
 
-    // Dynamic import to avoid the build error
     try {
-      const html2canvasModule = await import('html2canvas');
-      const jsPDFModule = await import('jspdf');
-      
-      const html2canvas = html2canvasModule.default;
-      const jsPDF = jsPDFModule.default;
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: {
+          roastId: id,
+        }
+      });
 
-      const canvas = await html2canvas(resultsRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        allowTaint: true
-      });
-      
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "px",
-        format: "a4"
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      
-      pdf.addImage(imgData, "PNG", imgX, 0, imgWidth * ratio, imgHeight * ratio);
-      pdf.save("web3-roast-results.pdf");
-      
-      toast.success("PDF report generated");
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
     } catch (error) {
-      console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF report");
+      console.error("Error creating checkout session:", error);
+      toast.error("Failed to create checkout session");
+      setIsUpgrading(false);
     }
   };
 
@@ -127,21 +117,23 @@ const Results = () => {
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="mb-6">
             <h1 className="text-3xl font-bold mb-2">Web3 ROAST Results</h1>
-            <p className="text-gray-400">Analysis for {persistedResult.url}</p>
+            <p className="text-gray-400">Analysis for your web3 project</p>
           </div>
 
           <div className="flex justify-end space-x-2 mb-4">
             <Button variant="outline" onClick={handleShare} className="border-zinc-700">
+              <Share2 className="h-4 w-4 mr-2" />
               Share Results
             </Button>
             <Button variant="outline" onClick={handleDownload} className="border-zinc-700">
+              <Download className="h-4 w-4 mr-2" />
               Download Report
             </Button>
           </div>
 
           <div ref={resultsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              <ScreenshotSection screenshotUrl={persistedResult.screenshot_url} />
+              <ScreenshotSection screenshotUrl={persistedResult.screenshot_url || ""} />
               <FeedbackSection findings={persistedResult.findings} />
             </div>
             <div className="lg:col-span-1 space-y-6">
@@ -211,37 +203,6 @@ const Results = () => {
     return <ErrorState title="Analysis failed" description="We couldn't complete the analysis of your project. Please try again." />;
   }
 
-  const handleUpgradeClick = async () => {
-    if (!user) {
-      toast.error("You must be logged in to upgrade");
-      return;
-    }
-
-    setIsUpgrading(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: {
-          roastId: id,
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No checkout URL returned");
-      }
-    } catch (error) {
-      console.error("Error creating checkout session:", error);
-      toast.error("Failed to create checkout session");
-      setIsUpgrading(false);
-    }
-  };
-
   let analysis: AIAnalysis;
   try {
     if (typeof roast.ai_analysis === 'string') {
@@ -272,7 +233,8 @@ const Results = () => {
         severity: f.severity,
         feedback: f.feedback
       })),
-      categories: analysis.categoryScores
+      categories: analysis.categoryScores,
+      screenshot_url: roast.screenshot_url
     };
 
     analysis = transformedAnalysis as unknown as AIAnalysis;
@@ -327,9 +289,11 @@ const Results = () => {
 
         <div className="flex justify-end space-x-2 mb-4">
           <Button variant="outline" onClick={handleShare} className="border-zinc-700">
+            <Share2 className="h-4 w-4 mr-2" />
             Share Results
           </Button>
           <Button variant="outline" onClick={handleDownload} className="border-zinc-700">
+            <Download className="h-4 w-4 mr-2" />
             Download Report
           </Button>
         </div>
