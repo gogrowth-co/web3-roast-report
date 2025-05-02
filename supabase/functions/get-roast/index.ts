@@ -29,33 +29,64 @@ serve(async (req: Request) => {
     }
     
     // Initialize Supabase client with service role key to bypass RLS
-    // This allows public access to roast results for sharing
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Fetch the roast result
-    const { data, error } = await supabase
+    // First try to get from roast_results table
+    let { data: resultData, error: resultError } = await supabase
       .from('roast_results')
       .select('result_json')
       .eq('roast_id', id)
       .single();
     
-    if (error) {
-      console.error("Error fetching roast result:", error);
-      return new Response(JSON.stringify({ error: "Failed to fetch roast result" }), {
-        status: 500,
+    // If no result found in roast_results, try to get directly from roasts table
+    if (resultError || !resultData) {
+      console.log("No persisted result found, trying roasts table directly");
+      
+      const { data: roastData, error: roastError } = await supabase
+        .from('roasts')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (roastError || !roastData) {
+        console.error("Error fetching roast:", roastError);
+        return new Response(JSON.stringify({ error: "Roast not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      if (roastData.status !== 'completed') {
+        return new Response(JSON.stringify({ error: "Roast analysis not completed yet", status: roastData.status }), {
+          status: 202, // Accepted but processing
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Transform roast data into the expected format
+      const transformedData = {
+        url: roastData.url,
+        score: roastData.score,
+        summary: roastData.ai_analysis?.feedback
+          ?.filter(f => f.severity === 'high')
+          ?.map(f => f.feedback)
+          ?.join('. ') || 'Web3 project analyzed successfully',
+        findings: roastData.ai_analysis?.feedback?.map(f => ({
+          category: f.category,
+          severity: f.severity,
+          feedback: f.feedback
+        })) || [],
+        categories: roastData.ai_analysis?.categoryScores || {},
+        screenshot_url: roastData.screenshot_url || ''
+      };
+      
+      return new Response(JSON.stringify(transformedData), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    if (!data) {
-      return new Response(JSON.stringify({ error: "Roast result not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
-    // Return the result
-    return new Response(JSON.stringify(data.result_json), {
+    // Return the result from roast_results if found
+    return new Response(JSON.stringify(resultData.result_json), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

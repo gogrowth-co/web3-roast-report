@@ -21,16 +21,22 @@ const Results = () => {
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [persistedResult, setPersistedResult] = useState<AIAnalysis | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(true);
   const resultsRef = useRef<HTMLDivElement>(null);
   const { data: roast, isLoading, error } = useRoastStatus(id || '');
 
   // Attempt to fetch persisted result from roast_results table
   useEffect(() => {
     const fetchPersistedResult = async () => {
-      if (!id) return;
+      if (!id) {
+        setIsFetching(false);
+        return;
+      }
       
       try {
         console.log("Fetching persisted roast result:", id);
+        setIsFetching(true);
+        
         const { data, error } = await supabase.functions.invoke('get-roast', {
           body: { id }
         });
@@ -38,6 +44,12 @@ const Results = () => {
         if (error) {
           console.error("Error fetching persisted result:", error);
           setFetchError("Failed to load roast results. Please try again later.");
+          return;
+        }
+
+        if (data && data.error) {
+          console.error("API returned error:", data.error);
+          setFetchError(data.error);
           return;
         }
 
@@ -50,6 +62,8 @@ const Results = () => {
       } catch (error) {
         console.error("Failed to fetch persisted result:", error);
         setFetchError("An unexpected error occurred while loading the roast results.");
+      } finally {
+        setIsFetching(false);
       }
     };
 
@@ -117,6 +131,11 @@ const Results = () => {
     // Invalid ID case
     if (!id) {
       return <ErrorState title="Invalid roast ID" />;
+    }
+
+    // Loading state while fetching
+    if (isFetching) {
+      return <LoadingState message="Loading roast results..." description="Please wait while we retrieve your analysis" />;
     }
 
     // Error from persisted result fetch
