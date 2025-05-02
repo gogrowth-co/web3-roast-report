@@ -20,6 +20,7 @@ const Results = () => {
   const { user } = useSession();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [persistedResult, setPersistedResult] = useState<AIAnalysis | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Attempt to fetch persisted result from roast_results table
@@ -35,15 +36,19 @@ const Results = () => {
 
         if (error) {
           console.error("Error fetching persisted result:", error);
+          setFetchError("Failed to load roast results. Please try again later.");
           return;
         }
 
         if (data) {
           console.log("Found persisted roast result:", data);
           setPersistedResult(data);
+        } else {
+          setFetchError("Roast result not found.");
         }
       } catch (error) {
         console.error("Failed to fetch persisted result:", error);
+        setFetchError("An unexpected error occurred while loading the roast results.");
       }
     };
 
@@ -75,7 +80,9 @@ const Results = () => {
 
   const handleUpgradeClick = async () => {
     if (!user) {
-      toast.error("You must be logged in to upgrade");
+      toast.error("You must be logged in to upgrade", {
+        description: "Please sign in to continue."
+      });
       return;
     }
 
@@ -106,6 +113,10 @@ const Results = () => {
 
   if (!id) {
     return <ErrorState title="Invalid roast ID" />;
+  }
+
+  if (fetchError) {
+    return <ErrorState title="Roast not found" description={fetchError} />;
   }
 
   // If we have a persisted result, use that instead of fetching from the roast status
@@ -143,19 +154,36 @@ const Results = () => {
                 summary={persistedResult.summary}
               />
 
-              <Button
-                className="w-full group relative overflow-hidden"
-                variant="default"
-                size="lg"
-                disabled={isUpgrading}
-                onClick={handleUpgradeClick}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative flex items-center justify-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  <span>{isUpgrading ? 'Processing...' : 'Upgrade to Expert Video Roast'}</span>
-                </div>
-              </Button>
+              {user ? (
+                <Button
+                  className="w-full group relative overflow-hidden"
+                  variant="default"
+                  size="lg"
+                  disabled={isUpgrading}
+                  onClick={handleUpgradeClick}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative flex items-center justify-center gap-2">
+                    <Sparkles className="h-5 w-5" />
+                    <span>{isUpgrading ? 'Processing...' : 'Upgrade to Expert Video Roast'}</span>
+                  </div>
+                </Button>
+              ) : (
+                <Button
+                  className="w-full group relative overflow-hidden"
+                  variant="default"
+                  size="lg"
+                  asChild
+                >
+                  <a href="/auth">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative flex items-center justify-center gap-2">
+                      <Sparkles className="h-5 w-5" />
+                      <span>Sign in to Upgrade</span>
+                    </div>
+                  </a>
+                </Button>
+              )}
               <p className="text-sm text-gray-400 text-center">
                 Get expert personalized video feedback
               </p>

@@ -28,14 +28,15 @@ serve(async (req: Request) => {
       });
     }
     
-    // Initialize Supabase client
+    // Initialize Supabase client with service role key to bypass RLS
+    // This allows public access to roast results for sharing
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Fetch the roast result
     const { data, error } = await supabase
       .from('roast_results')
       .select('result_json')
-      .eq('id', id)
+      .eq('roast_id', id)
       .single();
     
     if (error) {

@@ -29,10 +29,7 @@ const App = () => {
               path="/auth" 
               element={!session ? <Auth /> : <Navigate to="/" replace />} 
             />
-            <Route 
-              path="/results/:id" 
-              element={session ? <Results /> : <Navigate to="/auth" replace />} 
-            />
+            <Route path="/results/:id" element={<Results />} />
             <Route 
               path="/order-complete" 
               element={session ? <OrderComplete /> : <Navigate to="/auth" replace />} 
