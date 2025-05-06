@@ -27,9 +27,9 @@ const SharedRoast = () => {
 
       try {
         setIsLoading(true);
+        // Fix: Pass shareId as a query parameter using the correct syntax
         const { data, error } = await supabase.functions.invoke('get-shared-roast', {
-          body: {},
-          query: { shareId }
+          body: { shareId }
         });
 
         if (error) {

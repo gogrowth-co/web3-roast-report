@@ -14,8 +14,8 @@ serve(async (req: Request) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const shareId = url.searchParams.get("shareId");
+    // Get shareId from request body
+    const { shareId } = await req.json();
 
     if (!shareId) {
       return new Response(
