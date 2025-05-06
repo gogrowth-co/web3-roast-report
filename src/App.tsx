@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Results from "./pages/Results";
+import SharedRoast from "./pages/SharedRoast";
 import OrderComplete from "./pages/OrderComplete";
 import TestWebhook from "./pages/TestWebhook";
 
@@ -33,6 +34,7 @@ const App = () => {
               path="/results/:id" 
               element={session ? <Results /> : <Navigate to="/auth" replace />} 
             />
+            <Route path="/share/:shareId" element={<SharedRoast />} />
             <Route 
               path="/order-complete" 
               element={session ? <OrderComplete /> : <Navigate to="/auth" replace />} 

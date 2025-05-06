@@ -4,32 +4,30 @@ project_id = "qdttapddgbzmmxhbmbfl"
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "storage", "graphql_public"]
+schemas = ["public", "storage"]
 
 [db]
 port = 54322
 
-[db.extensions]
-pg_net = true
-
-[realtime]
+[studio]
 enabled = true
+port = 54323
+api_url = "http://localhost"
 
 [storage]
 enabled = true
 
-[inbucket]
-enabled = true
-port = 54324
-
 [auth]
 enabled = true
-port = 54323
-
-[studio]
-enabled = true
-port = 54325
 
 [functions]
+[functions.analyze-web3]
+verify_jwt = true
+[functions.create-checkout]
+verify_jwt = true
 [functions.stripe-webhook]
+verify_jwt = false
+[functions.create-share]
+verify_jwt = true
+[functions.get-shared-roast]
 verify_jwt = false

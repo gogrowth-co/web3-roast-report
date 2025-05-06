@@ -74,6 +74,30 @@ export type Database = {
         }
         Relationships: []
       }
+      roast_results: {
+        Row: {
+          created_at: string | null
+          id: string
+          result_json: Json
+          roast_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          result_json: Json
+          roast_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          result_json?: Json
+          roast_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       roasts: {
         Row: {
           ai_analysis: Json | null
@@ -112,6 +136,35 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      shared_roasts: {
+        Row: {
+          id: string
+          inserted_at: string
+          roast_id: string
+          share_id: string
+        }
+        Insert: {
+          id?: string
+          inserted_at?: string
+          roast_id: string
+          share_id: string
+        }
+        Update: {
+          id?: string
+          inserted_at?: string
+          roast_id?: string
+          share_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_roasts_roast_id_fkey"
+            columns: ["roast_id"]
+            isOneToOne: false
+            referencedRelation: "roasts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
