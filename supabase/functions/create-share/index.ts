@@ -25,19 +25,6 @@ serve(async (req: Request) => {
       }
     );
 
-    // Verify user is authenticated
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Get request payload
     const { roastId } = await req.json();
 

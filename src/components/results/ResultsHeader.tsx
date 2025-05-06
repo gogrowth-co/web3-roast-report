@@ -26,10 +26,12 @@ const ResultsHeader = () => {
       });
 
       if (error) {
+        console.error("Share function error:", error);
         throw new Error(error.message);
       }
 
       if (!data?.shareId) {
+        console.error("No share ID returned:", data);
         throw new Error("No share ID returned");
       }
 
@@ -51,10 +53,10 @@ const ResultsHeader = () => {
           description: "You can now share this link with others"
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Share error:", err);
       toast.error("Failed to share results", {
-        description: "Please try again"
+        description: err.message || "Please try again"
       });
     } finally {
       setIsSharing(false);

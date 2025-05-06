@@ -27,24 +27,27 @@ const SharedRoast = () => {
 
       try {
         setIsLoading(true);
-        // Fix: Pass shareId as a query parameter using the correct syntax
+        
         const { data, error } = await supabase.functions.invoke('get-shared-roast', {
           body: { shareId }
         });
 
         if (error) {
+          console.error("Error fetching shared roast:", error);
           throw new Error(error.message);
         }
 
         if (!data?.roast) {
+          console.error("No roast data returned:", data);
           throw new Error('Shared roast not found');
         }
 
         setRoast(data.roast);
         
         // Parse the AI analysis
-        let analysisData: AIAnalysis;
         try {
+          let analysisData: AIAnalysis;
+          
           if (typeof data.roast.ai_analysis === 'string') {
             analysisData = JSON.parse(data.roast.ai_analysis);
           } else if (data.roast.ai_analysis && typeof data.roast.ai_analysis === 'object') {
@@ -75,9 +78,9 @@ const SharedRoast = () => {
           };
 
           setAnalysis(transformedAnalysis as unknown as AIAnalysis);
-        } catch (err) {
+        } catch (err: any) {
           console.error('Analysis parse error:', err);
-          throw new Error('Failed to parse analysis data');
+          throw new Error('Failed to parse analysis data: ' + err.message);
         }
       } catch (err: any) {
         console.error('Error fetching shared roast:', err);
