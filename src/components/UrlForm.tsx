@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 const UrlForm = () => {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState('');
   const navigate = useNavigate();
 
   const validateUrl = (input: string) => {
@@ -22,13 +24,18 @@ const UrlForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError('');
     
-    if (!url.trim()) {
+    const trimmedUrl = url.trim();
+    
+    if (!trimmedUrl) {
+      setValidationError("Please enter a URL");
       toast.error("Please enter a URL");
       return;
     }
 
-    if (!validateUrl(url)) {
+    if (!validateUrl(trimmedUrl)) {
+      setValidationError("Please enter a valid URL (including http:// or https://)");
       toast.error("Please enter a valid URL (including http:// or https://)");
       return;
     }
@@ -41,7 +48,7 @@ const UrlForm = () => {
       
       if (!session) {
         // If not logged in, store URL and redirect to auth
-        sessionStorage.setItem('pending_url', url.trim());
+        sessionStorage.setItem('pending_url', trimmedUrl);
         navigate('/auth');
         return;
       }
@@ -51,7 +58,7 @@ const UrlForm = () => {
         .from('roasts')
         .insert([
           { 
-            url: url.trim(),
+            url: trimmedUrl,
             status: 'pending',
             user_id: session.user.id
           }
@@ -65,8 +72,9 @@ const UrlForm = () => {
       navigate(`/results/${data.id}`);
       
     } catch (error: any) {
-      toast.error(error.message);
-      console.error(error);
+      const errorMessage = error.message || "An error occurred. Please try again.";
+      toast.error(errorMessage);
+      console.error("Error creating roast:", error);
     } finally {
       setIsLoading(false);
     }
@@ -75,19 +83,37 @@ const UrlForm = () => {
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto">
       <div className="flex flex-col sm:flex-row gap-2">
-        <Input
-          type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="Enter your Web3 project URL (e.g., https://uniswap.org)"
-          className="flex-1 bg-web3-light-gray border-web3-light-gray focus:border-web3-purple focus:ring-web3-purple/50"
-        />
+        <div className="flex-grow">
+          <Input
+            type="text"
+            value={url}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              setValidationError(''); // Clear validation error when typing
+            }}
+            placeholder="Enter your Web3 project URL (e.g., https://uniswap.org)"
+            className={`flex-1 bg-web3-light-gray border-web3-light-gray focus:border-web3-purple focus:ring-web3-purple/50 ${
+              validationError ? 'border-red-500' : ''
+            }`}
+            aria-invalid={!!validationError}
+          />
+          {validationError && (
+            <p className="text-xs text-red-500 mt-1">{validationError}</p>
+          )}
+        </div>
         <Button 
           type="submit" 
           className="bg-web3-orange hover:bg-web3-orange/90 text-white font-bold"
           disabled={isLoading}
         >
-          {isLoading ? "Scanning..." : "Roast It! 🔥"}
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <span>Scanning...</span>
+            </>
+          ) : (
+            "Roast It! 🔥"
+          )}
         </Button>
       </div>
       <p className="text-xs text-gray-400 mt-2 text-center sm:text-left">

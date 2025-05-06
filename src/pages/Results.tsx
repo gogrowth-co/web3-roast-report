@@ -1,3 +1,4 @@
+
 import { useParams } from 'react-router-dom';
 import { useRoastStatus } from '@/hooks/useRoastStatus';
 import LoadingState from '@/components/results/LoadingState';
@@ -23,7 +24,7 @@ const Results = () => {
     return <ErrorState title="Invalid roast ID" />;
   }
 
-  const { data: roast, isLoading, error } = useRoastStatus(id);
+  const { data: roast, isLoading, error, retryAnalysis, isRetrying, retryCount } = useRoastStatus(id);
 
   if (isLoading || (roast && roast.status === 'pending')) {
     const getLoadingState = () => {
@@ -31,6 +32,13 @@ const Results = () => {
         message: "Initializing analysis...", 
         description: "Getting things ready" 
       };
+      
+      if (isRetrying) {
+        return {
+          message: `Retrying analysis (Attempt ${retryCount})...`,
+          description: "We're trying again to analyze your project"
+        };
+      }
       
       return {
         message: "AI is analyzing your project...",
@@ -44,7 +52,14 @@ const Results = () => {
 
   if (error) {
     console.error("Error loading roast results:", error);
-    return <ErrorState title="Error loading results" description={error.message} />;
+    return (
+      <ErrorState 
+        title="Error loading results" 
+        description={error.message} 
+        showRetryButton={true}
+        onRetry={retryAnalysis}
+      />
+    );
   }
 
   if (!roast) {
@@ -52,7 +67,14 @@ const Results = () => {
   }
 
   if (roast.status === 'failed') {
-    return <ErrorState title="Analysis failed" description="We couldn't complete the analysis of your project. Please try again." />;
+    return (
+      <ErrorState 
+        title="Analysis failed" 
+        description="We couldn't complete the analysis of your project." 
+        showRetryButton={true}
+        onRetry={retryAnalysis}
+      />
+    );
   }
 
   const handleUpgradeClick = async () => {
@@ -128,6 +150,8 @@ const Results = () => {
         <ErrorState
           title="Analysis failed"
           description="We couldn't complete the analysis. Please try again."
+          showRetryButton={true}
+          onRetry={retryAnalysis}
         />
       );
     }

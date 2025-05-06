@@ -1,5 +1,34 @@
 
-// Function to perform analysis using OpenAI
+// Function to perform analysis using OpenAI with retry logic
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 3000;
+
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  retries = MAX_RETRIES
+): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    return response;
+  } catch (error) {
+    if (retries <= 0) {
+      throw error;
+    }
+    
+    console.log(`Retrying OpenAI API request, ${retries} attempts left`);
+    await delay(RETRY_DELAY);
+    return fetchWithRetry(url, options, retries - 1);
+  }
+}
+
 export async function generateWebsiteAnalysis(
   url: string,
   screenshotUrl: string,
@@ -69,99 +98,118 @@ Use this exact structure in your output. Format your response as valid JSON only
 You may use the scraped text and screenshot URL (${screenshotUrl}) if needed. Prioritize clarity and Web3 relevance over being nice. Be punchy, direct, and write like you're advising a founder who wants the truth, fast.`;
 
   console.log("Sending request to OpenAI");
-  const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Please analyze this Web3 project at ${url} with its screenshot at ${screenshotUrl}` }
-      ]
-    }),
-  });
-
-  if (!openAIResponse.ok) {
-    const errorText = await openAIResponse.text();
-    console.error("OpenAI API error:", errorText);
-    throw new Error(`Failed to generate AI analysis: ${openAIResponse.status} ${openAIResponse.statusText}`);
-  }
-
-  const aiData = await openAIResponse.json();
-  console.log("OpenAI analysis completed successfully");
-  
-  if (!aiData.choices || aiData.choices.length === 0 || !aiData.choices[0].message || !aiData.choices[0].message.content) {
-    console.error("Invalid OpenAI response format:", aiData);
-    throw new Error('Invalid response from OpenAI API');
-  }
-  
-  let analysis;
   try {
-    analysis = JSON.parse(aiData.choices[0].message.content);
-    console.log("Analysis parsed successfully");
-    
-    // Transform the new format to be compatible with the frontend
-    const transformedAnalysis = {
-      overallScore: analysis.overallScore,
-      categoryScores: {
-        "Hero Section": analysis.heroSection.score,
-        "Trust & Social Proof": analysis.trustAndSocialProof.score,
-        "Messaging Clarity": analysis.messagingClarity.score,
-        "CTA Strategy": analysis.ctaStrategy.score,
-        "Visual Flow": analysis.visualFlow.score,
-        "Web3 Relevance": analysis.web3Relevance.score
+    const openAIResponse = await fetchWithRetry('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
       },
-      feedback: [
-        {
-          category: "Hero Section",
-          severity: analysis.heroSection.severity,
-          feedback: analysis.heroSection.feedback
-        },
-        {
-          category: "Trust & Social Proof",
-          severity: analysis.trustAndSocialProof.severity,
-          feedback: analysis.trustAndSocialProof.feedback
-        },
-        {
-          category: "Messaging Clarity",
-          severity: analysis.messagingClarity.severity,
-          feedback: analysis.messagingClarity.feedback
-        },
-        {
-          category: "CTA Strategy",
-          severity: analysis.ctaStrategy.severity,
-          feedback: analysis.ctaStrategy.feedback
-        },
-        {
-          category: "Visual Flow",
-          severity: analysis.visualFlow.severity,
-          feedback: analysis.visualFlow.feedback
-        },
-        {
-          category: "Web3 Relevance",
-          severity: analysis.web3Relevance.severity,
-          feedback: analysis.web3Relevance.feedback
-        }
-      ],
-      // Include original data for advanced use
-      rawAnalysis: analysis
-    };
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Please analyze this Web3 project at ${url} with its screenshot at ${screenshotUrl}` }
+        ]
+      }),
+    });
+
+    const aiData = await openAIResponse.json();
+    console.log("OpenAI analysis completed successfully");
     
-    // Replace the analysis with our transformed version
-    return transformedAnalysis;
+    if (!aiData.choices || aiData.choices.length === 0 || !aiData.choices[0].message || !aiData.choices[0].message.content) {
+      console.error("Invalid OpenAI response format:", aiData);
+      throw new Error('Invalid response from OpenAI API');
+    }
     
-  } catch (parseError) {
-    console.error("Failed to parse AI response:", parseError, aiData.choices[0].message.content);
-    throw new Error('Failed to parse analysis response');
+    let analysis;
+    try {
+      const content = aiData.choices[0].message.content.trim();
+      
+      // Handle potential markdown formatting in response
+      let jsonContent = content;
+      if (content.startsWith('```json')) {
+        jsonContent = content.replace(/```json|```/g, '').trim();
+      }
+      
+      analysis = JSON.parse(jsonContent);
+      console.log("Analysis parsed successfully");
+      
+      // Transform the new format to be compatible with the frontend
+      const transformedAnalysis = {
+        overallScore: analysis.overallScore,
+        categoryScores: {
+          "Hero Section": analysis.heroSection.score,
+          "Trust & Social Proof": analysis.trustAndSocialProof.score,
+          "Messaging Clarity": analysis.messagingClarity.score,
+          "CTA Strategy": analysis.ctaStrategy.score,
+          "Visual Flow": analysis.visualFlow.score,
+          "Web3 Relevance": analysis.web3Relevance.score
+        },
+        feedback: [
+          {
+            category: "Hero Section",
+            severity: analysis.heroSection.severity,
+            feedback: analysis.heroSection.feedback
+          },
+          {
+            category: "Trust & Social Proof",
+            severity: analysis.trustAndSocialProof.severity,
+            feedback: analysis.trustAndSocialProof.feedback
+          },
+          {
+            category: "Messaging Clarity",
+            severity: analysis.messagingClarity.severity,
+            feedback: analysis.messagingClarity.feedback
+          },
+          {
+            category: "CTA Strategy",
+            severity: analysis.ctaStrategy.severity,
+            feedback: analysis.ctaStrategy.feedback
+          },
+          {
+            category: "Visual Flow",
+            severity: analysis.visualFlow.severity,
+            feedback: analysis.visualFlow.feedback
+          },
+          {
+            category: "Web3 Relevance",
+            severity: analysis.web3Relevance.severity,
+            feedback: analysis.web3Relevance.feedback
+          }
+        ],
+        // Include original data for advanced use
+        rawAnalysis: analysis
+      };
+      
+      // Replace the analysis with our transformed version
+      return transformedAnalysis;
+      
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", parseError, aiData.choices[0].message.content);
+      throw new Error(`Failed to parse analysis response: ${parseError.message}`);
+    }
+  } catch (error) {
+    console.error("OpenAI API error:", error);
+    throw new Error(`OpenAI API error: ${error.message}`);
   }
 }
 
 // Function to validate analysis data
 export function validateAnalysis(analysis: any): void {
-  if (!analysis.overallScore) {
-    throw new Error('Incomplete analysis data: missing overallScore');
+  if (!analysis) {
+    throw new Error('Analysis data is missing');
+  }
+  
+  if (typeof analysis.overallScore !== 'number') {
+    throw new Error('Incomplete analysis data: missing or invalid overallScore');
+  }
+  
+  if (!analysis.feedback || !Array.isArray(analysis.feedback)) {
+    throw new Error('Incomplete analysis data: missing feedback array');
+  }
+  
+  if (!analysis.categoryScores || typeof analysis.categoryScores !== 'object') {
+    throw new Error('Incomplete analysis data: missing category scores');
   }
 }
