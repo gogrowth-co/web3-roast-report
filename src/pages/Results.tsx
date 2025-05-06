@@ -1,4 +1,3 @@
-
 import { useParams } from 'react-router-dom';
 import { useRoastStatus } from '@/hooks/useRoastStatus';
 import LoadingState from '@/components/results/LoadingState';
@@ -145,7 +144,7 @@ const Results = () => {
     <div className="min-h-screen bg-black">
       <ResultsHeader />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8" id="report-root">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Web3 ROAST Results</h1>
           <p className="text-gray-400">Analysis for {roast.url}</p>

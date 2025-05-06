@@ -5,11 +5,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { downloadElementAsPdf } from "@/utils/pdfUtils";
 
 const ResultsHeader = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [isSharing, setIsSharing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleShare = async () => {
     if (!id) {
@@ -57,6 +59,27 @@ const ResultsHeader = () => {
     }
   };
 
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      console.log("Starting report download process");
+      const success = await downloadElementAsPdf('report-root', `roast-report-${id || 'results'}.pdf`);
+      
+      if (success) {
+        toast.success("Report downloaded", {
+          description: "Your PDF report has been generated and downloaded"
+        });
+      }
+    } catch (err: any) {
+      console.error("Download error:", err);
+      toast.error("Failed to download report", {
+        description: err.message || "Please try again"
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 backdrop-blur-sm border-b border-zinc-800 bg-black/50">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -74,9 +97,14 @@ const ResultsHeader = () => {
             <Share2 className="h-4 w-4 mr-2" />
             {isSharing ? "Copying..." : "Copy Share Link"}
           </Button>
-          <Button variant="outline" className="border-zinc-700">
+          <Button 
+            variant="outline" 
+            className="border-zinc-700"
+            onClick={handleDownload}
+            disabled={isDownloading}
+          >
             <Download className="h-4 w-4 mr-2" />
-            Download Report
+            {isDownloading ? "Downloading..." : "Download Report"}
           </Button>
         </div>
       </div>
