@@ -11,9 +11,25 @@ interface ScoreSummaryProps {
 }
 
 const ScoreSummary = ({ score, categories, summary }: ScoreSummaryProps) => {
-  // Find critical and important issues for next steps
+  // Extract strength and weakness for next steps sections
   const highPriorityText = summary.split('.')[0] || "Improve your value proposition";
   const mediumPriorityText = summary.split('.')[1] || "Consider enhancing mobile responsiveness";
+  
+  // Generate performance overview that highlights strengths and weaknesses
+  const getPerformanceSummary = () => {
+    // Find top category and weakest category
+    const sortedCategories = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+    const topCategory = sortedCategories[0];
+    const weakestCategory = sortedCategories[sortedCategories.length - 1];
+    
+    // Generate insights based on overall score
+    let performanceLevel = "needs significant improvement";
+    if (score >= 80) performanceLevel = "performs strongly";
+    else if (score >= 60) performanceLevel = "shows promise but needs refinement";
+    else if (score >= 40) performanceLevel = "needs targeted improvements";
+    
+    return `Your Web3 landing page ${performanceLevel} with an overall score of ${score}. Your strongest area is ${topCategory?.[0]} where your clear ${topCategory?.[0].toLowerCase()} helps build credibility. However, your ${weakestCategory?.[0]} could be holding you back - consider addressing this first for quick wins. Focus on making your value proposition immediately clear to visitors who may not be familiar with your specific Web3 technology.`;
+  };
 
   return (
     <div className="space-y-6">
@@ -24,8 +40,8 @@ const ScoreSummary = ({ score, categories, summary }: ScoreSummaryProps) => {
         </CardHeader>
         <CardContent>
           <ScoreCircle score={score} />
-          <p className="text-center text-gray-400 mt-6">
-            {summary}
+          <p className="text-base text-gray-200 mt-6">
+            {getPerformanceSummary()}
           </p>
         </CardContent>
       </Card>
