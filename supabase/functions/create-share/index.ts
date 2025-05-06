@@ -15,6 +15,8 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log("create-share function called");
+    
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -27,8 +29,10 @@ serve(async (req: Request) => {
 
     // Get request payload
     const { roastId } = await req.json();
+    console.log("Request payload:", { roastId });
 
     if (!roastId) {
+      console.error("Missing roastId in request");
       return new Response(
         JSON.stringify({ error: "roastId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -51,14 +55,23 @@ serve(async (req: Request) => {
     }
 
     // Check if share already exists
-    const { data: existingShare } = await supabaseClient
+    const { data: existingShare, error: queryError } = await supabaseClient
       .from("shared_roasts")
       .select("share_id")
       .eq("roast_id", roastId)
       .single();
 
+    if (queryError && queryError.code !== 'PGRST116') {
+      console.error("Error checking for existing share:", queryError);
+      return new Response(
+        JSON.stringify({ error: "Failed to check for existing shares" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // If share exists, return existing share id
     if (existingShare) {
+      console.log("Returning existing share:", existingShare.share_id);
       return new Response(
         JSON.stringify({ shareId: existingShare.share_id }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -67,6 +80,7 @@ serve(async (req: Request) => {
 
     // Generate a short unique ID
     const shareId = nanoid(10);
+    console.log("Generated new shareId:", shareId);
 
     // Save the share link
     const { error: insertError } = await supabaseClient
@@ -84,12 +98,13 @@ serve(async (req: Request) => {
       );
     }
 
+    console.log("Share created successfully with shareId:", shareId);
     return new Response(
       JSON.stringify({ shareId }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error in create-share function:", error);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

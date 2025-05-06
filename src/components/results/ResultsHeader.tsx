@@ -19,6 +19,7 @@ const ResultsHeader = () => {
 
     try {
       setIsSharing(true);
+      console.log("Sharing roast with ID:", id);
       
       // Call the create-share function to get a share ID
       const { data, error } = await supabase.functions.invoke('create-share', {
@@ -27,16 +28,19 @@ const ResultsHeader = () => {
 
       if (error) {
         console.error("Share function error:", error);
-        throw new Error(error.message);
+        throw new Error(error.message || "Error invoking sharing function");
       }
 
       if (!data?.shareId) {
         console.error("No share ID returned:", data);
-        throw new Error("No share ID returned");
+        throw new Error("No share ID returned from sharing function");
       }
 
+      console.log("Share ID received:", data.shareId);
+      
       // Create the shareable URL
       const shareUrl = `${window.location.origin}/share/${data.shareId}`;
+      console.log("Generated share URL:", shareUrl);
       
       // Try to use the Web Share API if available
       if (navigator.share) {

@@ -14,10 +14,14 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log("get-shared-roast function called");
+    
     // Get shareId from request body
     const { shareId } = await req.json();
+    console.log("Request payload:", { shareId });
 
     if (!shareId) {
+      console.error("Missing shareId in request");
       return new Response(
         JSON.stringify({ error: "shareId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -49,6 +53,8 @@ serve(async (req: Request) => {
       );
     }
 
+    console.log("Found shared roast with roast_id:", sharedRoast.roast_id);
+
     // Get the roast data
     const { data: roast, error: roastError } = await supabaseClient
       .from("roasts")
@@ -64,12 +70,13 @@ serve(async (req: Request) => {
       );
     }
 
+    console.log("Successfully retrieved roast data");
     return new Response(
       JSON.stringify({ roast }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error in get-shared-roast:", error);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
