@@ -42,21 +42,11 @@ const ResultsHeader = () => {
       const shareUrl = `${window.location.origin}/share/${data.shareId}`;
       console.log("Generated share URL:", shareUrl);
       
-      // Try to use the Web Share API if available
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Web3 ROAST Results',
-          text: 'Check out this Web3 ROAST analysis!',
-          url: shareUrl,
-        });
-        toast.success("Shared successfully");
-      } else {
-        // Fallback to clipboard copy
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success("Link copied to clipboard", {
-          description: "You can now share this link with others"
-        });
-      }
+      // Copy to clipboard directly
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Link copied to clipboard", {
+        description: "You can now share this link with others"
+      });
     } catch (err: any) {
       console.error("Share error:", err);
       toast.error("Failed to share results", {
@@ -82,7 +72,7 @@ const ResultsHeader = () => {
             disabled={isSharing}
           >
             <Share2 className="h-4 w-4 mr-2" />
-            {isSharing ? "Sharing..." : "Share Results"}
+            {isSharing ? "Copying..." : "Copy Share Link"}
           </Button>
           <Button variant="outline" className="border-zinc-700">
             <Download className="h-4 w-4 mr-2" />
