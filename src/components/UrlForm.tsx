@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { trackUrlSubmission } from '@/utils/analytics';
 
 const UrlForm = () => {
   const [url, setUrl] = useState('');
@@ -40,6 +41,9 @@ const UrlForm = () => {
       return;
     }
 
+    // Track URL submission
+    trackUrlSubmission(trimmedUrl);
+    
     setIsLoading(true);
     
     try {

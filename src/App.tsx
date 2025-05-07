@@ -3,8 +3,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
+import { useEffect } from "react";
+import { trackPageView } from "@/utils/analytics";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -12,6 +14,17 @@ import Results from "./pages/Results";
 import SharedRoast from "./pages/SharedRoast";
 import OrderComplete from "./pages/OrderComplete";
 import TestWebhook from "./pages/TestWebhook";
+
+// Track page views
+const RouteChangeTracker = () => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location]);
+  
+  return null;
+};
 
 const queryClient = new QueryClient();
 
@@ -24,6 +37,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <RouteChangeTracker />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route 
