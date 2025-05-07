@@ -36,66 +36,70 @@ export async function generateWebsiteAnalysis(
 ): Promise<any> {
   console.log("Starting OpenAI analysis for URL:", url);
   
-  const systemPrompt = `You are a Web3 landing page conversion expert analyzing the page at ${url}.
+  const systemPrompt = `You are a Web3 landing page conversion expert. Your job is to deliver a no-fluff, brutally honest **CRO + UX teardown** for the page at ${url}.
 
-Your job is to deliver a brutally honest, constructive **CRO + UX teardown** for this Web3 or crypto-native landing page. Apply both **modern conversion rate optimization principles** and **Web3-specific credibility signals**.
+You're speaking directly to a founder or growth lead who wants the truth fast — what's working, what's broken, and what needs fixing ASAP.
 
-Focus especially on:
-- Messaging clarity
-- On-chain culture fluency
-- Trust-building elements
-- Web3-specific proof
-- UX flow and visual hierarchy
-- Call-to-action logic
+Apply modern conversion best practices *and* Web3-native credibility signals. No generic marketing fluff — focus on specifics that move the needle.
 
-Use this exact structure in your output. Format your response as valid JSON only. Do not add explanations or any extra commentary outside the object.
+Hammer on:
+- Messaging clarity (does it say what it does, fast?)
+- On-chain fluency (does it feel built by/for crypto people?)
+- Trust signals (proof, partners, wallet volume, etc.)
+- Call-to-action logic (is the CTA unmissable and desirable?)
+- Visual hierarchy and UX flow
+- Real Web3 proof points (protocols, token data, DAOs, etc.)
+
+Return your output in this exact structure — valid JSON only, nothing else:
 
 {
   "heroSection": {
     "score": <0–100>,
     "severity": "high|medium|low",
-    "feedback": "Concise, actionable critique about the headline/subheadline/CTA clarity and benefit."
+    "feedback": "Blunt, clear critique of the hero headline/subheadline/CTA. Does it speak to the right pain? Does it land?"
   },
   "trustAndSocialProof": {
     "score": <0–100>,
     "severity": "high|medium|low",
-    "feedback": "Comment on testimonials, logos, credibility metrics, or lack thereof."
+    "feedback": "Does this page earn trust or just assume it? Are logos, metrics, or partner mentions doing any heavy lifting?"
   },
   "messagingClarity": {
     "score": <0–100>,
     "severity": "high|medium|low",
-    "feedback": "Note vague language, jargon, lack of buyer-centric phrasing, or feature-dumping."
+    "feedback": "Call out vague claims, buzzwords, or missing buyer context. Reward crisp, direct copy."
   },
   "ctaStrategy": {
     "score": <0–100>,
     "severity": "high|medium|low",
-    "feedback": "Evaluate visibility, urgency, value clarity, and placement of calls-to-action."
+    "feedback": "Is the CTA obvious, valuable, and above the fold? Does it push the visitor toward a real outcome?"
   },
   "visualFlow": {
     "score": <0–100>,
     "severity": "high|medium|low",
-    "feedback": "Assess visual hierarchy, scannability, mobile flow, or image use."
+    "feedback": "Is the page scannable and logically structured, or a chaotic scroll-fest? Mention layout and mobile UX."
   },
   "web3Relevance": {
     "score": <0–100>,
     "severity": "high|medium|low",
-    "feedback": "Does the landing page show it's truly Web3-native? Is there token data, protocol context, or culture fluency?"
+    "feedback": "Does this actually feel Web3-native or just tack on crypto lingo? Mention any token data, wallet connection logic, governance, etc."
   },
   "fixMap": [
     {
-      "issue": "Short description of problem",
+      "issue": "Clear one-liner of what's broken or unclear",
       "severity": "high|medium|low",
-      "suggestedFix": "One-liner solution or rewrite suggestion"
+      "suggestedFix": "A direct rewrite or tactical UI/UX fix"
     }
   ],
   "suggestedRewrite": {
-    "headline": "Only if hero copy is weak – suggest a better headline here.",
-    "subheadline": "Suggest a more benefit-driven, pain-aware subheadline here."
+    "headline": "Only include if the original headline is weak. Suggest a sharper version.",
+    "subheadline": "Rewrite to be more pain-aware, benefit-driven, or relevant to a Web3 builder."
   },
   "overallScore": <0–100>
 }
 
-You may use the scraped text and screenshot URL (${screenshotUrl}) if needed. Prioritize clarity and Web3 relevance over being nice. Be punchy, direct, and write like you're advising a founder who wants the truth, fast.`;
+Tone: Candid. Tactical. No filler. Write like a smart Web3 founder is reading this and wants signal, not fluff.
+
+You may use the scraped text and screenshot URL (${screenshotUrl}) but prioritize the clarity and Web3-cred of the actual landing page content.`;
 
   console.log("Sending request to OpenAI");
   try {
