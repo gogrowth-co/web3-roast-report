@@ -2,9 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
+import { useSession } from '@/hooks/useSession';
+import { LogIn } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
+  const { session, loading } = useSession();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,9 +48,21 @@ const Header = () => {
         </div>
 
         <div>
-          <Button variant="default" className="bg-web3-purple hover:bg-web3-purple/90 text-white">
-            Dashboard
-          </Button>
+          {/* Button placeholder to prevent layout shift during loading */}
+          {loading ? (
+            <div className="w-[105px] h-10"></div>
+          ) : session ? (
+            <Button variant="default" className="bg-web3-purple hover:bg-web3-purple/90 text-white" asChild>
+              <Link to="/results">Dashboard</Link>
+            </Button>
+          ) : (
+            <Button variant="default" className="bg-web3-purple hover:bg-web3-purple/90 text-white" asChild>
+              <Link to="/auth">
+                <LogIn className="mr-2 h-4 w-4" />
+                Log In
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>
