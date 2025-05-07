@@ -15,7 +15,7 @@ const TestimonialsSection = () => {
       quote: "Brutally honest feedback, but exactly what we needed. The expert video roast transformed how we explain our complex DeFi product.",
       author: "Sarah Johnson",
       role: "CMO, DefiPrime",
-      avatar: "/placeholder.svg"
+      avatar: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=80&h=80"
     },
     {
       quote: "Worth every penny. The expert caught UX issues our team had been debating for weeks and provided clear solutions.",
