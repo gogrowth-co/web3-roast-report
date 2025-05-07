@@ -24,6 +24,13 @@ const Header = () => {
     };
   }, [scrolled]);
 
+  const scrollToUrlForm = () => {
+    const urlFormElement = document.getElementById('hero-section');
+    if (urlFormElement) {
+      urlFormElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <header
       className={cn(
@@ -56,11 +63,12 @@ const Header = () => {
               <Link to="/results">Dashboard</Link>
             </Button>
           ) : (
-            <Button variant="default" className="bg-web3-purple hover:bg-web3-purple/90 text-white" asChild>
-              <Link to="/auth">
-                <LogIn className="mr-2 h-4 w-4" />
-                Log In
-              </Link>
+            <Button 
+              variant="default" 
+              className="bg-web3-purple hover:bg-web3-purple/90 text-white"
+              onClick={scrollToUrlForm}
+            >
+              Roast It
             </Button>
           )}
         </div>
