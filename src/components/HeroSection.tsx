@@ -6,7 +6,7 @@ import UrlForm from './UrlForm';
 
 const HeroSection = () => {
   return (
-    <section className="pt-32 pb-16 sm:pt-40 sm:pb-20 overflow-hidden relative">
+    <section id="hero-section" className="pt-32 pb-16 sm:pt-40 sm:pb-20 overflow-hidden relative">
       {/* Background gradient elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-web3-purple/20 rounded-full filter blur-3xl opacity-30 animate-pulse-glow"></div>

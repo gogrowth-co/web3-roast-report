@@ -38,6 +38,13 @@ const HowItWorks = () => {
     }
   ];
 
+  const scrollToHero = () => {
+    const heroSection = document.getElementById('hero-section');
+    if (heroSection) {
+      heroSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <section id="how-it-works" className="section-container">
       <h2 className="section-heading">Our <span className="gradient-text">Services</span></h2>
@@ -71,6 +78,7 @@ const HowItWorks = () => {
               <CardFooter>
                 <Button 
                   className={`w-full ${plan.highlighted ? 'bg-web3-orange hover:bg-web3-orange/90' : 'bg-web3-purple hover:bg-web3-purple/90'}`}
+                  onClick={scrollToHero}
                 >
                   {plan.buttonText}
                 </Button>
