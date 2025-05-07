@@ -21,7 +21,7 @@ const TestimonialsSection = () => {
       quote: "Worth every penny. The expert caught UX issues our team had been debating for weeks and provided clear solutions.",
       author: "Michael Rodriguez",
       role: "Founder, NFT Marketplace",
-      avatar: "/placeholder.svg"
+      avatar: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=80&h=80"
     },
   ];
 
