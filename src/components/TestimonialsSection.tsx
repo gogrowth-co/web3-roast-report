@@ -9,7 +9,7 @@ const TestimonialsSection = () => {
       quote: "The AI audit pinpointed exactly why our Web3 wallet wasn't converting. After implementing the suggestions, our sign-ups increased by 42%.",
       author: "Alex Chen",
       role: "Product Lead, MetaMask",
-      avatar: "/placeholder.svg"
+      avatar: "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?auto=format&fit=crop&w=80&h=80"
     },
     {
       quote: "Brutally honest feedback, but exactly what we needed. The expert video roast transformed how we explain our complex DeFi product.",
