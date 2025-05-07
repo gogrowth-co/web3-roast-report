@@ -40,7 +40,7 @@ const HowItWorks = () => {
 
   return (
     <section id="how-it-works" className="section-container">
-      <h2 className="section-heading">How It <span className="gradient-text">Works</span></h2>
+      <h2 className="section-heading">Our <span className="gradient-text">Services</span></h2>
       
       <div className="grid md:grid-cols-2 gap-8">
         {plans.map((plan, index) => (
