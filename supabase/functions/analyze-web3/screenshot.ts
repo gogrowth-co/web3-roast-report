@@ -47,14 +47,14 @@ export async function captureAndStoreScreenshot(
       throw new Error('Screenshot storage bucket not found. Please create it first.');
     }
 
-    // Capture screenshot using APIFlash with proper 1024x768 dimensions
-    console.log("Capturing screenshot for URL:", url);
-    const screenshotUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(url)}&format=jpeg&quality=90&dimension=1024x768`;
+    // Capture screenshot using APIFlash with full_page set to true
+    console.log("Capturing full page screenshot for URL:", url);
+    const screenshotUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(url)}&format=jpeg&quality=90&full_page=true&dimension=1024x768`;
     
     const screenshotResponse = await fetchWithRetry(screenshotUrl, {});
 
     const screenshotBlob = await screenshotResponse.blob();
-    console.log("Screenshot captured successfully, size:", screenshotBlob.size, "bytes");
+    console.log("Full page screenshot captured successfully, size:", screenshotBlob.size, "bytes");
     
     if (screenshotBlob.size === 0) {
       console.error("Screenshot capture returned empty image");
@@ -78,7 +78,7 @@ export async function captureAndStoreScreenshot(
     });
 
     const finalScreenshotUrl = `${supabaseUrl}/storage/v1/object/public/roast-screenshots/${screenshotPath}`;
-    console.log("Screenshot stored successfully at:", finalScreenshotUrl);
+    console.log("Full page screenshot stored successfully at:", finalScreenshotUrl);
     
     return finalScreenshotUrl;
   } catch (error) {
