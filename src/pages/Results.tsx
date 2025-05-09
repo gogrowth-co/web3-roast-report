@@ -1,4 +1,3 @@
-
 import { useParams } from 'react-router-dom';
 import { useRoastStatus } from '@/hooks/useRoastStatus';
 import LoadingState from '@/components/results/LoadingState';
@@ -7,6 +6,7 @@ import ResultsHeader from '@/components/results/ResultsHeader';
 import ScreenshotSection from '@/components/results/ScreenshotSection';
 import FeedbackSection from '@/components/results/FeedbackSection';
 import ScoreSummary from '@/components/results/ScoreSummary';
+import UpgradeBanner from '@/components/results/UpgradeBanner';
 import { useSession } from '@/hooks/useSession';
 import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
@@ -209,6 +209,8 @@ const Results = () => {
           © 2025 Web3 ROAST. All rights reserved.
         </div>
       </div>
+      
+      <UpgradeBanner />
     </div>
   );
 };

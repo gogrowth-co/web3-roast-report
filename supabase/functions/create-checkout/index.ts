@@ -23,7 +23,7 @@ serve(async (req) => {
     
     // Parse request body
     const requestData = await req.json();
-    const { roastId } = requestData;
+    const { roastId, priceId } = requestData;
     
     if (!roastId) {
       throw new Error('Missing roast ID');
@@ -54,7 +54,7 @@ serve(async (req) => {
       customer_email: user.email,
       line_items: [
         {
-          price: 'price_1RJbftD41aNWIHmddbD7SvEo', // Using the provided Price ID
+          price: priceId || 'price_1RJbftD41aNWIHmddbD7SvEo', // Use provided priceId or default
           quantity: 1,
         },
       ],
@@ -69,7 +69,7 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         session_id: session.id,
-        price_id: 'price_1RJbftD41aNWIHmddbD7SvEo',
+        price_id: priceId || 'price_1RJbftD41aNWIHmddbD7SvEo',
         status: 'pending',
         amount: session.amount_total ? session.amount_total / 100 : 0,
       });
