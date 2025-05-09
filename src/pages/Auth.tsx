@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -63,17 +64,30 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        console.log(`Attempting to sign up user with email: ${email}`);
+        
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
+        
         if (error) throw error;
+        
+        // Log successful signup for debugging
+        console.log("User signup successful:", { 
+          userId: data?.user?.id,
+          email: data?.user?.email,
+          created_at: new Date().toISOString()
+        });
         
         // Track signup event for analytics
         trackSignUp('email');
         
         toast.success("Check your email to confirm your account!");
         console.log("User signup triggered - Zapier webhook should fire automatically");
+        
+        // Add additional webhook debug logging
+        console.log("Webhook should be triggered by database directly via trigger_zapier_on_new_user() function");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -84,6 +98,7 @@ const Auth = () => {
         await handlePendingUrl();
       }
     } catch (error: any) {
+      console.error("Authentication error:", error);
       toast.error(error.message);
     } finally {
       setIsLoading(false);

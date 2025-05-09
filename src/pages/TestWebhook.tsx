@@ -7,33 +7,61 @@ import { toast } from "@/components/ui/sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 
 const TestWebhook = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [email, setEmail] = useState('test@example.com');
   const [userId, setUserId] = useState('test-user-id-' + Date.now());
   const [webhookUrl, setWebhookUrl] = useState('https://hooks.zapier.com/hooks/catch/2648556/2plv5iy/');
   const [testResults, setTestResults] = useState<{success?: boolean; message?: string; payload?: any}>({});
+  const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
 
   // Check if webhook is configured in database
   const checkWebhookConfiguration = async () => {
     try {
-      const { data, error } = await supabase
-        .from('migrations')
-        .select('name')
-        .eq('name', '20250501_create_zapier_webhook')
-        .single();
-
-      if (error) {
-        console.error("Error checking webhook configuration:", error);
+      // Check for migration in a way that works with the database schema
+      const { data: migrations, error: migrationError } = await supabase
+        .rpc('get_pg_functions_info');
+      
+      if (migrationError) {
+        console.error("Error checking functions:", migrationError);
         return false;
       }
 
-      return !!data;
+      // Check if the webhook trigger function exists
+      const webhookFunctionExists = migrations?.some(
+        (fn: any) => fn.name === 'trigger_zapier_on_new_user'
+      );
+
+      return webhookFunctionExists;
     } catch (error) {
       console.error("Error checking webhook configuration:", error);
       return false;
+    }
+  };
+
+  const fetchWebhookLogs = async () => {
+    setIsFetching(true);
+    try {
+      // This will only work if the webhook_logs table exists
+      const { data, error } = await supabase
+        .from('webhook_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error("Error fetching webhook logs:", error);
+        toast.error("Could not fetch webhook logs");
+      } else {
+        setWebhookLogs(data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching webhook logs:", error);
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -97,27 +125,14 @@ const TestWebhook = () => {
       if (!isConfigured) {
         setTestResults({
           success: false,
-          message: "Webhook configuration not found in database migrations"
-        });
-        return;
-      }
-
-      // Check SQL function exists (approximation since we can't directly check functions)
-      const { data: pgFunctions, error: pgError } = await supabase
-        .rpc('get_pg_functions_info');
-
-      if (pgError) {
-        console.error("Error checking PostgreSQL functions:", pgError);
-        setTestResults({
-          success: false,
-          message: "Could not validate database functions: " + pgError.message
+          message: "Webhook trigger function not found in database functions"
         });
         return;
       }
 
       setTestResults({
         success: true,
-        message: "Webhook configuration appears to be valid",
+        message: "Webhook function appears to be properly configured",
         payload: {
           webhookUrl: webhookUrl,
           triggeredBy: "Database trigger on auth.users INSERT",
@@ -126,6 +141,10 @@ const TestWebhook = () => {
       });
 
       toast.success("Webhook validation completed");
+      
+      // Try to fetch webhook logs to see if any have been created
+      await fetchWebhookLogs();
+      
     } catch (error) {
       console.error("Error validating webhook:", error);
       toast.error("Failed to validate webhook configuration");
@@ -139,20 +158,26 @@ const TestWebhook = () => {
     }
   };
 
+  useEffect(() => {
+    // Try to fetch webhook logs on initial load
+    fetchWebhookLogs();
+  }, []);
+
   return (
     <div className="container mx-auto py-10">
       <Card className="max-w-md mx-auto">
         <CardHeader>
           <CardTitle>Test Zapier Webhook</CardTitle>
           <CardDescription>
-            Test and validate your user signup webhook integration
+            Debug and validate your user signup webhook integration
           </CardDescription>
         </CardHeader>
 
         <Tabs defaultValue="test">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="test">Send Test</TabsTrigger>
             <TabsTrigger value="validate">Validate Setup</TabsTrigger>
+            <TabsTrigger value="logs">View Logs</TabsTrigger>
           </TabsList>
           
           <TabsContent value="test">
@@ -225,6 +250,42 @@ const TestWebhook = () => {
                 )}
               </Button>
             </CardFooter>
+          </TabsContent>
+          
+          <TabsContent value="logs">
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-medium">Recent Webhook Attempts</h3>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchWebhookLogs}
+                  disabled={isFetching}
+                >
+                  {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </Button>
+              </div>
+              
+              {webhookLogs.length > 0 ? (
+                <div className="space-y-2 max-h-60 overflow-auto">
+                  {webhookLogs.map((log) => (
+                    <div key={log.id} className="p-2 text-xs bg-gray-50 dark:bg-gray-900 rounded-md">
+                      <div className="flex justify-between">
+                        <span className="font-medium">User: {log.user_id.slice(0,8)}...</span>
+                        <span className="text-gray-500">{new Date(log.created_at).toLocaleString()}</span>
+                      </div>
+                      <div className="mt-1">
+                        <pre className="overflow-auto">{JSON.stringify(log.payload, null, 2)}</pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-sm text-gray-500">
+                  {isFetching ? 'Loading logs...' : 'No webhook logs found'}
+                </div>
+              )}
+            </CardContent>
           </TabsContent>
         </Tabs>
 
