@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
+import { trackSignUp } from '@/utils/analytics';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -68,7 +68,12 @@ const Auth = () => {
           password,
         });
         if (error) throw error;
+        
+        // Track signup event for analytics
+        trackSignUp('email');
+        
         toast.success("Check your email to confirm your account!");
+        console.log("User signup triggered - Zapier webhook should fire automatically");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
