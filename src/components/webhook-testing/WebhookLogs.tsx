@@ -18,8 +18,8 @@ const WebhookLogs = () => {
 
   const fetchWebhookLogs = async () => {
     try {
-      // Using proper type parameters for rpc
-      const { data, error } = await supabase.rpc('get_webhook_logs');
+      // Fix the generic type for the rpc call
+      const { data, error } = await supabase.rpc<any, WebhookLog[]>('get_webhook_logs');
       
       if (error) throw error;
       
