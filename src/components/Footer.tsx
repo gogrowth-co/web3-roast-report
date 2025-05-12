@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Separator } from "@/components/ui/separator";
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
   return (
@@ -42,22 +43,22 @@ const Footer = () => {
             </div>
             
             <div>
+              <h3 className="font-bold mb-4">Company</h3>
+              <ul className="space-y-2">
+                <li><Link to="/about" className="text-gray-400 hover:text-white transition">About</Link></li>
+                <li><a href="#" className="text-gray-400 hover:text-white transition">Careers</a></li>
+                <li><a href="#" className="text-gray-400 hover:text-white transition">Contact</a></li>
+                <li><a href="#" className="text-gray-400 hover:text-white transition">Partners</a></li>
+              </ul>
+            </div>
+            
+            <div>
               <h3 className="font-bold mb-4">Resources</h3>
               <ul className="space-y-2">
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Blog</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Web3 UX Guide</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Case Studies</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Documentation</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-bold mb-4">Company</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white transition">About</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition">Careers</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition">Contact</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition">Partners</a></li>
               </ul>
             </div>
           </div>

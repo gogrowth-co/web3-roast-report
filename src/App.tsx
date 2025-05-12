@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import Results from "./pages/Results";
 import SharedRoast from "./pages/SharedRoast";
 import OrderComplete from "./pages/OrderComplete";
+import About from "./pages/About";
 
 // Track page views
 const RouteChangeTracker = () => {
@@ -54,6 +55,7 @@ const App = () => {
                 path="/order-complete" 
                 element={session ? <OrderComplete /> : <Navigate to="/auth" replace />} 
               />
+              <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

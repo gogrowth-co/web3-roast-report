@@ -49,6 +49,7 @@ const Header = () => {
         </div>
         
         <div className="hidden md:flex items-center gap-8">
+          <Link to="/about" className="text-gray-300 hover:text-white font-medium transition">About</Link>
           <a href="#how-it-works" className="text-gray-300 hover:text-white font-medium transition">How It Works</a>
           <a href="#pricing" className="text-gray-300 hover:text-white font-medium transition">Pricing</a>
           <a href="#faq" className="text-gray-300 hover:text-white font-medium transition">FAQ</a>
