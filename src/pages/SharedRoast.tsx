@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -123,6 +124,7 @@ const SharedRoast = () => {
         <SEO 
           title="Error - Web3 ROAST"
           description="The shared analysis could not be loaded. It may have been removed or the link is invalid."
+          noIndex={true}
         />
         <ErrorState title="Error loading shared results" description={error?.message || 'Could not load shared analysis'} />
       </>
@@ -140,6 +142,8 @@ const SharedRoast = () => {
         title={pageTitle}
         description={seoDescription}
         ogType="article"
+        ogImageUrl={roast.screenshot_url || "https://web3roast.com/og-image.png"}
+        canonicalUrl={`https://web3roast.com/share/${shareId}`}
       />
       <ResultsHeader />
 

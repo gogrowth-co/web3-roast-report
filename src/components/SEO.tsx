@@ -22,6 +22,11 @@ const SEO: React.FC<SEOProps> = ({
   // Build full title with brand name
   const fullTitle = title.includes('Web3 ROAST') ? title : `${title} | Web3 ROAST`;
   
+  // Get the absolute URL for OG image
+  const absoluteOgImageUrl = ogImageUrl.startsWith('http') 
+    ? ogImageUrl 
+    : `${window.location.origin}${ogImageUrl.startsWith('/') ? '' : '/'}${ogImageUrl}`;
+  
   return (
     <Helmet>
       {/* Basic Metadata */}
@@ -35,14 +40,16 @@ const SEO: React.FC<SEOProps> = ({
       <meta property="og:type" content={ogType} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
-      {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
+      <meta property="og:image" content={absoluteOgImageUrl} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
       {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
       
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
-      {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
+      <meta name="twitter:image" content={absoluteOgImageUrl} />
       
       {/* No index if specified */}
       {noIndex && <meta name="robots" content="noindex,nofollow" />}
