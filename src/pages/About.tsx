@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import SEO from '@/components/SEO';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from "@/components/ui/separator";
+import { Link } from 'react-router-dom';
 
 const About = () => {
   return (
@@ -23,6 +24,31 @@ const About = () => {
               Brutally honest feedback for Web3 landing pages that actually converts visitors
             </p>
           </div>
+
+          <section className="mb-16">
+            <h2 className="text-2xl font-bold mb-6">What is Web3 ROAST?</h2>
+            <Card className="bg-web3-dark border-web3-light-gray">
+              <CardContent className="pt-6">
+                <p className="mb-4">
+                  Web3 ROAST is the industry-leading Web3 landing page audit and crypto UX tool designed to dramatically 
+                  improve conversion rates for blockchain projects. Our Web3 CRO analysis combines expert marketing knowledge 
+                  with deep crypto-specific insights to identify exactly what's preventing your visitors from converting.
+                </p>
+                <p className="mb-4">
+                  The tool works by analyzing your submitted landing page URL through both AI-powered assessment and expert 
+                  human review. You receive a comprehensive teardown highlighting user experience issues, trust factors, and 
+                  conversion barriers specific to Web3 audiences.
+                </p>
+                <p>
+                  <Link to="/#how-it-works" className="text-web3-purple hover:text-web3-orange transition">
+                    Learn how it works
+                  </Link> and discover why leading crypto projects trust Web3 ROAST to optimize their user acquisition.
+                </p>
+              </CardContent>
+            </Card>
+          </section>
+
+          <Separator className="my-10 bg-web3-light-gray" />
 
           <section className="mb-16">
             <h2 className="text-2xl font-bold mb-6">Our Story</h2>
