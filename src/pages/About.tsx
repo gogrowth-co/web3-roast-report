@@ -70,30 +70,6 @@ const About = () => {
             </Card>
           </section>
 
-          <Separator className="my-10 bg-web3-light-gray" />
-
-          <section className="mb-16">
-            <h2 className="text-2xl font-bold mb-6">Our Team</h2>
-            <Card className="bg-web3-dark border-web3-light-gray">
-              <CardContent className="pt-6">
-                <p className="mb-4">
-                  We're a small, anonymous team of Web3 veterans who've collectively worked on marketing and UX for 
-                  dozens of crypto projects — from tiny NFT collections to billion-dollar DeFi protocols.
-                </p>
-                <p className="mb-4">
-                  Our backgrounds span conversion rate optimization, growth marketing, UI/UX design, 
-                  and yes, we're deeply embedded in crypto's unique meme culture. We understand both the 
-                  technical aspects of blockchain products AND how to communicate them to regular humans.
-                </p>
-                <p>
-                  We stay anonymous not because we're hiding, but because we believe the focus should be on 
-                  the value we provide, not our personal brands. Plus, it allows us to deliver the unvarnished 
-                  truth without worrying about industry politics or hurting feelings.
-                </p>
-              </CardContent>
-            </Card>
-          </section>
-
           <div className="text-center mt-12">
             <p className="text-xl font-semibold gradient-text">Ready for your Web3 project to get roasted?</p>
             <a href="/" className="mt-6 inline-block bg-web3-purple hover:bg-web3-purple/90 text-white px-8 py-3 rounded-md font-medium transition-colors">
