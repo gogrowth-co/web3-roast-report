@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +54,7 @@ const TestWebhook = () => {
   const fetchWebhookLogs = async () => {
     try {
       // Use RPC function instead of direct table access
-      const { data, error } = await supabase.rpc('get_webhook_logs');
+      const { data, error } = await supabase.rpc<WebhookLog>('get_webhook_logs');
       
       if (error) throw error;
       
