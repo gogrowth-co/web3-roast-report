@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { HelmetProvider } from 'react-helmet-async';
 import { useSession } from "@/hooks/useSession";
 import { useEffect } from "react";
 import { trackPageView } from "@/utils/analytics";
@@ -33,31 +34,33 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <RouteChangeTracker />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route 
-              path="/auth" 
-              element={!session ? <Auth /> : <Navigate to="/" replace />} 
-            />
-            <Route 
-              path="/results/:id" 
-              element={session ? <Results /> : <Navigate to="/auth" replace />} 
-            />
-            <Route path="/share/:shareId" element={<SharedRoast />} />
-            <Route 
-              path="/order-complete" 
-              element={session ? <OrderComplete /> : <Navigate to="/auth" replace />} 
-            />
-            <Route path="/test-webhook" element={<TestWebhook />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <HelmetProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <RouteChangeTracker />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route 
+                path="/auth" 
+                element={!session ? <Auth /> : <Navigate to="/" replace />} 
+              />
+              <Route 
+                path="/results/:id" 
+                element={session ? <Results /> : <Navigate to="/auth" replace />} 
+              />
+              <Route path="/share/:shareId" element={<SharedRoast />} />
+              <Route 
+                path="/order-complete" 
+                element={session ? <OrderComplete /> : <Navigate to="/auth" replace />} 
+              />
+              <Route path="/test-webhook" element={<TestWebhook />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </HelmetProvider>
     </QueryClientProvider>
   );
 };

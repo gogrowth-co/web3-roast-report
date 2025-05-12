@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +7,7 @@ import ResultsHeader from '@/components/results/ResultsHeader';
 import ScreenshotSection from '@/components/results/ScreenshotSection';
 import FeedbackSection from '@/components/results/FeedbackSection';
 import ScoreSummary from '@/components/results/ScoreSummary';
+import SEO from '@/components/SEO';
 import type { AIAnalysis } from '@/types/analysis';
 
 const SharedRoast = () => {
@@ -16,6 +16,8 @@ const SharedRoast = () => {
   const [error, setError] = useState<Error | null>(null);
   const [roast, setRoast] = useState<any>(null);
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
+  const [pageTitle, setPageTitle] = useState("Shared Web3 ROAST Results");
+  const [pageDescription, setPageDescription] = useState("View shared Web3 project analysis results and recommendations.");
 
   useEffect(() => {
     const fetchSharedRoast = async () => {
@@ -93,16 +95,52 @@ const SharedRoast = () => {
     fetchSharedRoast();
   }, [shareId]);
 
+  // Update metadata when roast data is loaded
+  useEffect(() => {
+    if (roast && roast.url) {
+      try {
+        const domain = new URL(roast.url).hostname;
+        setPageTitle(`Shared Analysis for ${domain} - Web3 ROAST`);
+        setPageDescription(`Shared Web3 ROAST analysis results and improvement recommendations for ${domain}.`);
+      } catch (err) {
+        // If URL parsing fails, keep default title
+      }
+    }
+  }, [roast]);
+
   if (isLoading) {
-    return <LoadingState message="Loading shared results..." description="Please wait while we retrieve the analysis" />;
+    return (
+      <>
+        <SEO title={pageTitle} description={pageDescription} />
+        <LoadingState message="Loading shared results..." description="Please wait while we retrieve the analysis" />
+      </>
+    );
   }
 
   if (error || !roast || !analysis) {
-    return <ErrorState title="Error loading shared results" description={error?.message || 'Could not load shared analysis'} />;
+    return (
+      <>
+        <SEO 
+          title="Error - Web3 ROAST"
+          description="The shared analysis could not be loaded. It may have been removed or the link is invalid."
+        />
+        <ErrorState title="Error loading shared results" description={error?.message || 'Could not load shared analysis'} />
+      </>
+    );
   }
+
+  // Extract a meaningful description from the analysis
+  const seoDescription = analysis.summary && analysis.summary.length > 150
+    ? analysis.summary.substring(0, 147) + "..."
+    : analysis.summary || pageDescription;
 
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title={pageTitle}
+        description={seoDescription}
+        ogType="article"
+      />
       <ResultsHeader />
 
       <div className="max-w-7xl mx-auto px-4 py-8">

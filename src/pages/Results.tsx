@@ -8,23 +8,33 @@ import FeedbackSection from '@/components/results/FeedbackSection';
 import ScoreSummary from '@/components/results/ScoreSummary';
 import UpgradeBanner from '@/components/results/UpgradeBanner';
 import { useSession } from '@/hooks/useSession';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import SEO from '@/components/SEO';
 import type { AIAnalysis } from '@/types/analysis';
 
 const Results = () => {
   const { id } = useParams();
   const { user } = useSession();
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [pageTitle, setPageTitle] = useState("Loading Results - Web3 ROAST");
+  const [pageDescription, setPageDescription] = useState("Analyzing your Web3 project for UX issues and conversion opportunities.");
 
   if (!id) {
     return <ErrorState title="Invalid roast ID" />;
   }
 
   const { data: roast, isLoading, error, retryAnalysis, isRetrying, retryCount } = useRoastStatus(id);
+
+  useEffect(() => {
+    if (roast && roast.url) {
+      setPageTitle(`Analysis for ${new URL(roast.url).hostname} - Web3 ROAST`);
+      setPageDescription(`Web3 ROAST analysis results and improvement recommendations for ${new URL(roast.url).hostname}.`);
+    }
+  }, [roast]);
 
   if (isLoading || (roast && roast.status === 'pending')) {
     const getLoadingState = () => {
@@ -47,18 +57,29 @@ const Results = () => {
     };
 
     const { message, description } = getLoadingState();
-    return <LoadingState message={message} description={description} />;
+    return (
+      <>
+        <SEO title={pageTitle} description={pageDescription} />
+        <LoadingState message={message} description={description} />
+      </>
+    );
   }
 
   if (error) {
     console.error("Error loading roast results:", error);
     return (
-      <ErrorState 
-        title="Error loading results" 
-        description={error.message} 
-        showRetryButton={true}
-        onRetry={retryAnalysis}
-      />
+      <>
+        <SEO 
+          title="Error - Web3 ROAST"
+          description="We encountered an error while loading your results. Please try again."
+        />
+        <ErrorState 
+          title="Error loading results" 
+          description={error.message} 
+          showRetryButton={true}
+          onRetry={retryAnalysis}
+        />
+      </>
     );
   }
 
@@ -164,8 +185,20 @@ const Results = () => {
     );
   }
 
+  // Determine summary for SEO description
+  let seoDescription = "Web3 project analysis results and improvement recommendations.";
+  if (analysis && analysis.summary) {
+    seoDescription = analysis.summary.length > 150 
+      ? analysis.summary.substring(0, 147) + "..."
+      : analysis.summary;
+  }
+
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title={pageTitle}
+        description={seoDescription}
+      />
       <ResultsHeader />
 
       <div className="max-w-7xl mx-auto px-4 py-8" id="report-root">

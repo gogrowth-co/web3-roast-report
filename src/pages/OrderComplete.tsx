@@ -4,6 +4,7 @@ import { CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/hooks/useSession';
+import SEO from '@/components/SEO';
 
 const OrderComplete = () => {
   const { session } = useSession();
@@ -22,6 +23,10 @@ const OrderComplete = () => {
 
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title="Order Complete - Web3 ROAST Pro Upgrade"
+        description="Thank you for upgrading to Web3 ROAST Pro! Your video review will be delivered within 48 hours."
+      />
       <div className="max-w-4xl mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-screen">
         <div className="relative mb-8">
           <div className="absolute inset-0 rounded-full bg-green-500 blur-lg opacity-20"></div>

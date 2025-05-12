@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
 import { trackSignUp } from '@/utils/analytics';
+import SEO from '@/components/SEO';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -107,6 +107,13 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black">
+      <SEO 
+        title={isSignUp ? "Sign Up - Web3 ROAST" : "Sign In - Web3 ROAST"}
+        description={isSignUp 
+          ? "Create your account to get brutally honest feedback on your Web3 project landing page." 
+          : "Sign in to your Web3 ROAST account to access your project analyses and results."
+        }
+      />
       <div className="w-full max-w-md space-y-8 p-6 bg-zinc-900 rounded-lg shadow-xl">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-white">

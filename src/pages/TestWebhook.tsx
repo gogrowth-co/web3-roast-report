@@ -1,321 +1,227 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/components/ui/sonner";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { AlertCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { supabase } from '@/integrations/supabase/client';
+import SEO from '@/components/SEO';
+
+// Define webhook log type
+interface WebhookLog {
+  id: string;
+  created_at: string;
+  user_id: string | null;
+  email: string | null;
+  payload: any;
+  response: any;
+  status: number | null;
+}
 
 const TestWebhook = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('test@example.com');
-  const [userId, setUserId] = useState('test-user-id-' + Date.now());
-  const [webhookUrl, setWebhookUrl] = useState('https://hooks.zapier.com/hooks/catch/2648556/2plv5iy/');
-  const [testResults, setTestResults] = useState<{success?: boolean; message?: string; payload?: any}>({});
-  const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
-
-  // Check if webhook is configured in database
-  const checkWebhookConfiguration = async () => {
-    try {
-      // Check for migration in a way that works with the database schema
-      const { data: migrations, error: migrationError } = await supabase
-        .rpc('get_pg_functions_info');
-      
-      if (migrationError) {
-        console.error("Error checking functions:", migrationError);
-        return false;
-      }
-
-      // Check if the webhook trigger function exists
-      const webhookFunctionExists = migrations?.some(
-        (fn: any) => fn.name === 'trigger_zapier_on_new_user'
-      );
-
-      return webhookFunctionExists;
-    } catch (error) {
-      console.error("Error checking webhook configuration:", error);
-      return false;
-    }
-  };
-
-  const fetchWebhookLogs = async () => {
-    setIsFetching(true);
-    try {
-      // This will only work if the webhook_logs table exists
-      const { data, error } = await supabase
-        .from('webhook_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) {
-        console.error("Error fetching webhook logs:", error);
-        toast.error("Could not fetch webhook logs");
-      } else {
-        setWebhookLogs(data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching webhook logs:", error);
-    } finally {
-      setIsFetching(false);
-    }
-  };
-
-  const handleSendTest = async () => {
-    setIsLoading(true);
-    setTestResults({});
-    
-    try {
-      // Direct call to the Zapier webhook for testing
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uid: userId,
-          email: email,
-          created_at: new Date().toISOString()
-        }),
-        mode: 'no-cors', // Using no-cors since this is a cross-origin request
-      });
-      
-      // Since we're using no-cors, we can't read the response
-      // We'll assume success if no exception was thrown
-      toast.success("Test data sent to Zapier webhook");
-      
-      const testPayload = {
-        uid: userId,
-        email: email,
-        created_at: new Date().toISOString()
-      };
-      
-      setTestResults({
-        success: true,
-        message: "Test request sent successfully",
-        payload: testPayload
-      });
-      
-      console.log("Webhook test request sent with data:", testPayload);
-    } catch (error) {
-      console.error("Error sending test data:", error);
-      toast.error("Failed to send test data to webhook");
-      
-      setTestResults({
-        success: false,
-        message: error instanceof Error ? error.message : "Unknown error occurred"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const runValidation = async () => {
-    setIsLoading(true);
-    setTestResults({});
-
-    try {
-      // Check if webhook configuration exists in database
-      const isConfigured = await checkWebhookConfiguration();
-
-      if (!isConfigured) {
-        setTestResults({
-          success: false,
-          message: "Webhook trigger function not found in database functions"
-        });
-        return;
-      }
-
-      setTestResults({
-        success: true,
-        message: "Webhook function appears to be properly configured",
-        payload: {
-          webhookUrl: webhookUrl,
-          triggeredBy: "Database trigger on auth.users INSERT",
-          expectedFields: ["uid", "email", "created_at"]
-        }
-      });
-
-      toast.success("Webhook validation completed");
-      
-      // Try to fetch webhook logs to see if any have been created
-      await fetchWebhookLogs();
-      
-    } catch (error) {
-      console.error("Error validating webhook:", error);
-      toast.error("Failed to validate webhook configuration");
-      
-      setTestResults({
-        success: false,
-        message: error instanceof Error ? error.message : "Unknown error occurred"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [userId, setUserId] = useState('test-user-id-123');
+  const [pgNetStatus, setPgNetStatus] = useState<string | null>(null);
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
 
   useEffect(() => {
-    // Try to fetch webhook logs on initial load
+    // Check if pg_net is enabled
+    const checkPgNet = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-pg-functions-info');
+        
+        if (error) throw error;
+        
+        const migrations = data?.migrations || [];
+        const pgNetEnabled = migrations.some((m: any) => 
+          m.name.includes('pg_net') && m.success === true
+        );
+        
+        setPgNetStatus(pgNetEnabled ? 'enabled' : 'disabled');
+      } catch (err: any) {
+        console.error('Error checking pg_net:', err);
+        setPgNetStatus(`error: ${err.message}`);
+      }
+    };
+    
+    checkPgNet();
     fetchWebhookLogs();
   }, []);
 
-  return (
-    <div className="container mx-auto py-10">
-      <Card className="max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle>Test Zapier Webhook</CardTitle>
-          <CardDescription>
-            Debug and validate your user signup webhook integration
-          </CardDescription>
-        </CardHeader>
+  const fetchWebhookLogs = async () => {
+    try {
+      // Use RPC function instead of direct table access
+      const { data, error } = await supabase.rpc('get_webhook_logs');
+      
+      if (error) throw error;
+      
+      setWebhookLogs(data || []);
+    } catch (err: any) {
+      console.error('Error fetching webhook logs:', err);
+      setError(`Failed to fetch webhook logs: ${err.message}`);
+    }
+  };
 
-        <Tabs defaultValue="test">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="test">Send Test</TabsTrigger>
-            <TabsTrigger value="validate">Validate Setup</TabsTrigger>
-            <TabsTrigger value="logs">View Logs</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="test">
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="webhookUrl">Webhook URL</Label>
-                <Input 
-                  id="webhookUrl" 
-                  value={webhookUrl} 
-                  onChange={(e) => setWebhookUrl(e.target.value)} 
-                  placeholder="https://hooks.zapier.com/hooks/catch/..." 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  placeholder="test@example.com" 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="userId">User ID</Label>
-                <Input 
-                  id="userId" 
-                  value={userId} 
-                  onChange={(e) => setUserId(e.target.value)} 
-                  placeholder="user-id" 
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                onClick={handleSendTest} 
-                disabled={isLoading}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span>Sending...</span>
-                  </>
-                ) : (
-                  "Send Test Data"
-                )}
-              </Button>
-            </CardFooter>
-          </TabsContent>
-          
-          <TabsContent value="validate">
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-500">
-                This will validate your webhook configuration in the database to ensure it's properly set up.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                onClick={runValidation} 
-                disabled={isLoading}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span>Validating...</span>
-                  </>
-                ) : (
-                  "Validate Webhook Configuration"
-                )}
-              </Button>
-            </CardFooter>
-          </TabsContent>
-          
-          <TabsContent value="logs">
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-medium">Recent Webhook Attempts</h3>
+  const handleTestWebhook = async () => {
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('test-webhook', {
+        body: {
+          uid: userId,
+          email: email,
+          created_at: new Date().toISOString()
+        }
+      });
+      
+      if (error) throw error;
+      
+      setResult(data);
+      fetchWebhookLogs(); // Refresh logs after test
+    } catch (err: any) {
+      console.error('Webhook test error:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-black p-8">
+      <SEO 
+        title="Webhook Testing - Web3 ROAST"
+        description="Admin tool for testing and debugging webhooks."
+        noIndex={true}
+      />
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">Webhook Testing Dashboard</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Test Webhook</CardTitle>
+              <CardDescription>Send test data to Zapier webhook</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input 
+                    id="email" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    placeholder="test@example.com"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="userId">User ID</Label>
+                  <Input 
+                    id="userId" 
+                    value={userId} 
+                    onChange={(e) => setUserId(e.target.value)} 
+                    placeholder="user-id"
+                  />
+                </div>
+                
                 <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={fetchWebhookLogs}
-                  disabled={isFetching}
+                  onClick={handleTestWebhook} 
+                  disabled={isLoading}
                 >
-                  {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {isLoading ? 'Testing...' : 'Test Webhook'}
                 </Button>
               </div>
-              
-              {webhookLogs.length > 0 ? (
-                <div className="space-y-2 max-h-60 overflow-auto">
-                  {webhookLogs.map((log) => (
-                    <div key={log.id} className="p-2 text-xs bg-gray-50 dark:bg-gray-900 rounded-md">
-                      <div className="flex justify-between">
-                        <span className="font-medium">User: {log.user_id.slice(0,8)}...</span>
-                        <span className="text-gray-500">{new Date(log.created_at).toLocaleString()}</span>
-                      </div>
-                      <div className="mt-1">
-                        <pre className="overflow-auto">{JSON.stringify(log.payload, null, 2)}</pre>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-sm text-gray-500">
-                  {isFetching ? 'Loading logs...' : 'No webhook logs found'}
-                </div>
-              )}
             </CardContent>
-          </TabsContent>
-        </Tabs>
-
-        {testResults.success !== undefined && (
-          <div className={`p-4 mt-4 rounded-md ${testResults.success ? 'bg-green-50 dark:bg-green-950/30' : 'bg-red-50 dark:bg-red-950/30'}`}>
-            <div className="flex">
-              <div className="flex-shrink-0">
-                {testResults.success ? (
-                  <CheckCircle className="h-5 w-5 text-green-400" aria-hidden="true" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>System Status</CardTitle>
+              <CardDescription>Database extension and webhook configuration</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <span className="font-medium">pg_net Status: </span> 
+                  <span className={pgNetStatus === 'enabled' ? 'text-green-500' : 'text-red-500'}>
+                    {pgNetStatus || 'Checking...'}
+                  </span>
+                </div>
+                
+                <div>
+                  <span className="font-medium">Webhook URL: </span> 
+                  <span className="text-xs break-all">
+                    https://hooks.zapier.com/hooks/catch/2648556/2plv5iy/
+                  </span>
+                </div>
+                
+                {result && (
+                  <div className="mt-4 p-2 bg-zinc-800 rounded text-sm">
+                    <pre className="whitespace-pre-wrap overflow-auto max-h-40">
+                      {JSON.stringify(result, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                
+                {error && (
+                  <div className="p-2 bg-red-900/30 border border-red-700 rounded text-red-400 text-sm">
+                    {error}
+                  </div>
                 )}
               </div>
-              <div className="ml-3">
-                <h3 className={`text-sm font-medium ${testResults.success ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
-                  {testResults.success ? 'Success' : 'Error'}
-                </h3>
-                <div className={`mt-2 text-sm ${testResults.success ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                  <p>{testResults.message}</p>
-                  {testResults.payload && (
-                    <pre className="mt-2 p-2 bg-black/10 rounded text-xs overflow-auto">
-                      {JSON.stringify(testResults.payload, null, 2)}
-                    </pre>
-                  )}
-                </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Webhook Logs</CardTitle>
+            <CardDescription>Recent webhook execution attempts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {webhookLogs.length === 0 ? (
+              <p className="text-gray-400">No webhook logs found</p>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {webhookLogs.map((log) => (
+                  <div key={log.id} className="p-3 border border-zinc-800 rounded">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm text-gray-400">
+                        {new Date(log.created_at).toLocaleString()}
+                      </span>
+                      <span className={`text-sm ${log.status === 200 ? 'text-green-500' : 'text-red-500'}`}>
+                        Status: {log.status}
+                      </span>
+                    </div>
+                    <p className="text-sm mb-1">
+                      <strong>User:</strong> {log.email || 'Unknown'}
+                    </p>
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-blue-400 hover:text-blue-300">
+                        View Details
+                      </summary>
+                      <pre className="mt-2 p-2 bg-zinc-800 rounded overflow-x-auto">
+                        {JSON.stringify(log.payload, null, 2)}
+                      </pre>
+                      <div className="mt-2">
+                        <strong>Response:</strong>
+                        <pre className="mt-1 p-2 bg-zinc-800 rounded overflow-x-auto">
+                          {JSON.stringify(log.response, null, 2)}
+                        </pre>
+                      </div>
+                    </details>
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
-        )}
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
