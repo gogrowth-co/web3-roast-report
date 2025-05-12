@@ -10,13 +10,13 @@ const WebhookLogs = () => {
 
   const fetchWebhookLogs = async () => {
     try {
-      // Fix the generic types by using the correct order - first params type, then return type
-      const { data, error } = await supabase.rpc('get_webhook_logs');
+      // Fix the generic types by specifying both parameters type and return type
+      const { data, error } = await supabase.rpc<{}, WebhookLog[]>('get_webhook_logs');
       
       if (error) throw error;
       
       // Ensure we properly type check and handle the data before setting state
-      setWebhookLogs(data as WebhookLog[] || []);
+      setWebhookLogs(data || []);
     } catch (err: any) {
       console.error('Error fetching webhook logs:', err);
       setError(`Failed to fetch webhook logs: ${err.message}`);
