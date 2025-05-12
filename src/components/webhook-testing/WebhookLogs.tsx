@@ -4,19 +4,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from '@/integrations/supabase/client';
 import { WebhookLog } from '@/types/webhook';
 
+// Add the new type definition as requested
+type WebhookLogData = {
+  id: string;
+  timestamp: string;
+  payload: Record<string, any>;
+};
+
 const WebhookLogs = () => {
-  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  // Update the useState hook as requested
+  const [logs, setLogs] = useState<WebhookLog[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const fetchWebhookLogs = async () => {
     try {
-      // Fix the generic types by specifying both parameters type and return type
-      const { data, error } = await supabase.rpc<{}, WebhookLog[]>('get_webhook_logs');
+      // Using proper type parameters for rpc
+      const { data, error } = await supabase.rpc('get_webhook_logs');
       
       if (error) throw error;
       
-      // Ensure we properly type check and handle the data before setting state
-      setWebhookLogs(data || []);
+      // Cast data to WebhookLog[] type as requested
+      setLogs(data as WebhookLog[]);
     } catch (err: any) {
       console.error('Error fetching webhook logs:', err);
       setError(`Failed to fetch webhook logs: ${err.message}`);
@@ -37,11 +45,11 @@ const WebhookLogs = () => {
         {error && (
           <p className="text-red-400 mb-4">{error}</p>
         )}
-        {webhookLogs.length === 0 ? (
+        {logs.length === 0 ? (
           <p className="text-gray-400">No webhook logs found</p>
         ) : (
           <div className="space-y-4 max-h-96 overflow-y-auto">
-            {webhookLogs.map((log) => (
+            {logs.map((log) => (
               <div key={log.id} className="p-3 border border-zinc-800 rounded">
                 <div className="flex justify-between mb-2">
                   <span className="text-sm text-gray-400">
