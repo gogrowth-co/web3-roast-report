@@ -77,7 +77,8 @@ const SharedRoast = () => {
               severity: f.severity,
               feedback: f.feedback
             })),
-            categories: analysisData.categoryScores
+            categories: analysisData.categoryScores,
+            rawAnalysis: analysisData.rawAnalysis
           };
 
           setAnalysis(transformedAnalysis as unknown as AIAnalysis);
@@ -163,6 +164,7 @@ const SharedRoast = () => {
               score={analysis.score} 
               categories={analysis.categories}
               summary={analysis.summary}
+              rawAnalysis={analysis.rawAnalysis}
             />
             
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">

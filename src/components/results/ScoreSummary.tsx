@@ -1,20 +1,18 @@
 
 import ScoreCircle from '@/components/ScoreCircle';
 import CategoryScore from '@/components/CategoryScore';
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import type { RawWeb3Analysis } from '@/types/analysis';
 
 interface ScoreSummaryProps {
   score: number;
   categories: { [key: string]: number };
   summary: string;
+  rawAnalysis?: RawWeb3Analysis;
 }
 
-const ScoreSummary = ({ score, categories, summary }: ScoreSummaryProps) => {
-  // Extract strength and weakness for next steps sections
-  const highPriorityText = summary.split('.')[0] || "Improve your value proposition";
-  const mediumPriorityText = summary.split('.')[1] || "Consider enhancing mobile responsiveness";
-  
+const ScoreSummary = ({ score, categories, summary, rawAnalysis }: ScoreSummaryProps) => {
   // Generate performance overview that highlights strengths and weaknesses
   const getPerformanceSummary = () => {
     // Find top category and weakest category
@@ -30,6 +28,22 @@ const ScoreSummary = ({ score, categories, summary }: ScoreSummaryProps) => {
     
     return `Your Web3 landing page ${performanceLevel} with an overall score of ${score}. Your strongest area is ${topCategory?.[0]} where your clear ${topCategory?.[0].toLowerCase()} helps build credibility. However, your ${weakestCategory?.[0]} could be holding you back - consider addressing this first for quick wins. Focus on making your value proposition immediately clear to visitors who may not be familiar with your specific Web3 technology.`;
   };
+
+  // Group fix map items by severity
+  const getGroupedRecommendations = () => {
+    if (!rawAnalysis?.fixMap || rawAnalysis.fixMap.length === 0) {
+      return { high: [], medium: [], low: [] };
+    }
+
+    return rawAnalysis.fixMap.reduce((acc, item) => {
+      if (item.severity === 'high') acc.high.push(item);
+      else if (item.severity === 'medium') acc.medium.push(item);
+      else acc.low.push(item);
+      return acc;
+    }, { high: [] as typeof rawAnalysis.fixMap, medium: [] as typeof rawAnalysis.fixMap, low: [] as typeof rawAnalysis.fixMap });
+  };
+
+  const recommendations = getGroupedRecommendations();
 
   return (
     <div className="space-y-6">
@@ -67,29 +81,76 @@ const ScoreSummary = ({ score, categories, summary }: ScoreSummaryProps) => {
       <Card className="border-zinc-800 bg-zinc-900">
         <CardHeader className="pb-2">
           <h2 className="text-xl font-semibold">Next Steps</h2>
-          <p className="text-gray-400">Recommended actions</p>
+          <p className="text-gray-400">Actionable recommendations to improve your conversion rate</p>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="font-medium text-lg">High Priority</h3>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                  <span>{highPriorityText}</span>
+          <div className="space-y-6">
+            {recommendations.high.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <h3 className="font-semibold text-lg">Critical Issues</h3>
                 </div>
+                {recommendations.high.map((item, idx) => (
+                  <div key={idx} className="ml-7 space-y-2 pb-4 border-b border-zinc-800 last:border-0">
+                    <p className="text-gray-200 font-medium">{item.issue}</p>
+                    <div className="bg-zinc-800/50 p-3 rounded-md">
+                      <p className="text-sm text-gray-300">
+                        <span className="font-medium text-green-400">Fix: </span>
+                        {item.suggestedFix}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
             
-            <div className="space-y-2">
-              <h3 className="font-medium text-lg">Medium Priority</h3>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
-                  <span>{mediumPriorityText}</span>
+            {recommendations.medium.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  <h3 className="font-semibold text-lg">Important Improvements</h3>
                 </div>
+                {recommendations.medium.map((item, idx) => (
+                  <div key={idx} className="ml-7 space-y-2 pb-4 border-b border-zinc-800 last:border-0">
+                    <p className="text-gray-200 font-medium">{item.issue}</p>
+                    <div className="bg-zinc-800/50 p-3 rounded-md">
+                      <p className="text-sm text-gray-300">
+                        <span className="font-medium text-green-400">Fix: </span>
+                        {item.suggestedFix}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
+
+            {recommendations.low.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-blue-500" />
+                  <h3 className="font-semibold text-lg">Nice to Have</h3>
+                </div>
+                {recommendations.low.map((item, idx) => (
+                  <div key={idx} className="ml-7 space-y-2 pb-4 border-b border-zinc-800 last:border-0">
+                    <p className="text-gray-200 font-medium">{item.issue}</p>
+                    <div className="bg-zinc-800/50 p-3 rounded-md">
+                      <p className="text-sm text-gray-300">
+                        <span className="font-medium text-green-400">Fix: </span>
+                        {item.suggestedFix}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {recommendations.high.length === 0 && recommendations.medium.length === 0 && recommendations.low.length === 0 && (
+              <div className="text-center py-6">
+                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                <p className="text-gray-400">No specific issues identified. Your landing page is performing well!</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

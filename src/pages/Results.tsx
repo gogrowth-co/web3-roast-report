@@ -159,7 +159,8 @@ const Results = () => {
         severity: f.severity,
         feedback: f.feedback
       })),
-      categories: analysis.categoryScores
+      categories: analysis.categoryScores,
+      rawAnalysis: analysis.rawAnalysis
     };
 
     analysis = transformedAnalysis as unknown as AIAnalysis;
@@ -217,6 +218,7 @@ const Results = () => {
               score={analysis.score} 
               categories={analysis.categories}
               summary={analysis.summary}
+              rawAnalysis={analysis.rawAnalysis}
             />
 
             <Button
