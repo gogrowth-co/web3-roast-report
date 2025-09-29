@@ -29,8 +29,9 @@ serve(async (req) => {
     try {
       event = stripe.webhooks.constructEvent(body, stripeSignature, webhookSecret);
     } catch (err) {
-      console.error(`Webhook signature verification failed: ${err.message}`);
-      return new Response(`Webhook signature verification failed: ${err.message}`, { status: 400 });
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`Webhook signature verification failed: ${errorMsg}`);
+      return new Response(`Webhook signature verification failed: ${errorMsg}`, { status: 400 });
     }
 
     // Initialize Supabase client
@@ -79,6 +80,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error handling webhook:', error);
-    return new Response(`Webhook error: ${error.message}`, { status: 500 });
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(`Webhook error: ${errorMsg}`, { status: 500 });
   }
 });

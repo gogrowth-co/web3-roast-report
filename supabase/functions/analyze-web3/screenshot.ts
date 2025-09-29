@@ -83,6 +83,7 @@ export async function captureAndStoreScreenshot(
     return finalScreenshotUrl;
   } catch (error) {
     console.error("Error in screenshot capture:", error);
-    throw new Error(`Screenshot capture failed: ${error.message}`);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Screenshot capture failed: ${errorMsg}`);
   }
 }

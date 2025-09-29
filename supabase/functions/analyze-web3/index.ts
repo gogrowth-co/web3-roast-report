@@ -5,6 +5,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts"
 import { corsHeaders, handleErrorResponse, validateEnvironmentVars, updateRoastStatus, validateRequest } from "./utils.ts";
 import { captureAndStoreScreenshot } from "./screenshot.ts";
 import { generateWebsiteAnalysis, validateAnalysis } from "./openai.ts";
+import { scrapeWebsiteContent } from "./scraper.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -57,6 +58,10 @@ serve(async (req) => {
     console.log("Found roast with URL:", roast.url);
 
     try {
+      // Scrape website content for text analysis
+      console.log("Scraping website content");
+      const scrapedContent = await scrapeWebsiteContent(roast.url);
+      
       // Capture and store screenshot
       const finalScreenshotUrl = await captureAndStoreScreenshot(
         roastId, 
@@ -66,8 +71,13 @@ serve(async (req) => {
         screenshotApiKey
       );
 
-      // Generate analysis with OpenAI
-      const analysis = await generateWebsiteAnalysis(roast.url, finalScreenshotUrl, openAIApiKey);
+      // Generate analysis with OpenAI using both screenshot and scraped content
+      const analysis = await generateWebsiteAnalysis(
+        roast.url, 
+        finalScreenshotUrl, 
+        openAIApiKey,
+        scrapedContent
+      );
       
       // Validate analysis data
       validateAnalysis(analysis);
@@ -92,12 +102,13 @@ serve(async (req) => {
     } catch (processingError) {
       // If there's an error during processing, update the status to failed
       console.error("Error during analysis processing:", processingError);
+      const errorMessage = processingError instanceof Error ? processingError.message : 'Unknown error';
       await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'failed', {
-        error_message: processingError.message
+        error_message: errorMessage
       });
       throw processingError;
     }
   } catch (error) {
-    return handleErrorResponse(error, req);
+    return handleErrorResponse(error as Error, req);
   }
 });

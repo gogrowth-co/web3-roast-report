@@ -29,12 +29,37 @@ async function fetchWithRetry(
   }
 }
 
+interface ScrapedContent {
+  title: string;
+  metaDescription: string;
+  mainHeadline: string;
+  subHeadlines: string[];
+  ctaTexts: string[];
+  visibleText: string;
+  success: boolean;
+}
+
 export async function generateWebsiteAnalysis(
   url: string,
   screenshotUrl: string,
-  openAIApiKey: string
+  openAIApiKey: string,
+  scrapedContent?: ScrapedContent
 ): Promise<any> {
   console.log("Starting OpenAI analysis for URL:", url);
+  
+  // Build context from scraped content
+  let contentContext = '';
+  if (scrapedContent && scrapedContent.success) {
+    contentContext = `
+
+**Scraped Page Content:**
+- Page Title: ${scrapedContent.title}
+- Meta Description: ${scrapedContent.metaDescription}
+- Main Headline (H1): ${scrapedContent.mainHeadline}
+- Sub-headlines: ${scrapedContent.subHeadlines.join(', ')}
+- CTA Buttons: ${scrapedContent.ctaTexts.join(', ')}
+- First 3000 characters of visible text: ${scrapedContent.visibleText}`;
+  }
   
   const systemPrompt = `You are a Web3 landing page conversion expert. Your job is to deliver a no-fluff, brutally honest **CRO + UX teardown** for the page at ${url}.
 
@@ -99,7 +124,7 @@ Return your output in this exact structure — valid JSON only, nothing else:
 
 Tone: Candid. Tactical. No filler. Write like a smart Web3 founder is reading this and wants signal, not fluff.
 
-You may use the scraped text and screenshot URL (${screenshotUrl}) but prioritize the clarity and Web3-cred of the actual landing page content.`;
+Use BOTH the screenshot (${screenshotUrl}) for visual analysis AND the scraped text content for precise copy analysis.${contentContext}`;
 
   console.log("Sending request to OpenAI");
   try {
@@ -113,7 +138,13 @@ You may use the scraped text and screenshot URL (${screenshotUrl}) but prioritiz
         model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Please analyze this Web3 project at ${url} with its screenshot at ${screenshotUrl}` }
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `Analyze this Web3 landing page at ${url}. Use the screenshot for visual analysis and the scraped content for precise text analysis.` },
+              { type: "image_url", image_url: { url: screenshotUrl } }
+            ]
+          }
         ]
       }),
     });
@@ -191,11 +222,13 @@ You may use the scraped text and screenshot URL (${screenshotUrl}) but prioritiz
       
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError, aiData.choices[0].message.content);
-      throw new Error(`Failed to parse analysis response: ${parseError.message}`);
+      const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown parse error';
+      throw new Error(`Failed to parse analysis response: ${errorMsg}`);
     }
   } catch (error) {
     console.error("OpenAI API error:", error);
-    throw new Error(`OpenAI API error: ${error.message}`);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`OpenAI API error: ${errorMsg}`);
   }
 }
 

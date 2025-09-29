@@ -60,7 +60,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error processing function info request:", error);
     return new Response(JSON.stringify({
-      error: error.message || "An unknown error occurred"
+      error: error instanceof Error ? error.message : "An unknown error occurred"
     }), {
       status: 500,
       headers: {
