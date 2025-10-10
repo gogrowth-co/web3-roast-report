@@ -296,7 +296,7 @@ const Results = () => {
         </div>
       </div>
       
-      <UpgradeBanner />
+      <UpgradeBanner user={user} onSignUp={handleSignUp} />
     </div>
   );
 };
