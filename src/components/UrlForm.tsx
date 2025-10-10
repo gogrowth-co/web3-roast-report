@@ -47,33 +47,53 @@ const UrlForm = () => {
     setIsLoading(true);
     
     try {
+      // Generate or retrieve session ID for anonymous users
+      let sessionId = localStorage.getItem('roast_session_id');
+      if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        localStorage.setItem('roast_session_id', sessionId);
+      }
+
       // Check if the user is logged in
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        // If not logged in, store URL and redirect to auth
-        sessionStorage.setItem('pending_url', trimmedUrl);
-        navigate('/auth');
-        return;
+      if (session) {
+        // Logged in users - use roasts table
+        const { data, error } = await supabase
+          .from('roasts')
+          .insert([
+            { 
+              url: trimmedUrl,
+              status: 'pending',
+              user_id: session.user.id
+            }
+          ])
+          .select('id')
+          .single();
+
+        if (error) throw error;
+        
+        toast.success("Analysis started!");
+        navigate(`/results/${data.id}`);
+      } else {
+        // Anonymous users - use anonymous_roasts table
+        const { data, error } = await supabase
+          .from('anonymous_roasts')
+          .insert([
+            { 
+              url: trimmedUrl,
+              status: 'pending',
+              session_id: sessionId
+            }
+          ])
+          .select('id')
+          .single();
+
+        if (error) throw error;
+        
+        toast.success("Analysis started!");
+        navigate(`/results/${data.id}`);
       }
-
-      // If logged in, create the roast directly
-      const { data, error } = await supabase
-        .from('roasts')
-        .insert([
-          { 
-            url: trimmedUrl,
-            status: 'pending',
-            user_id: session.user.id
-          }
-        ])
-        .select('id')
-        .single();
-
-      if (error) throw error;
-      
-      toast.success("Analysis started!");
-      navigate(`/results/${data.id}`);
       
     } catch (error: any) {
       const errorMessage = error.message || "An error occurred. Please try again.";

@@ -48,7 +48,7 @@ const App = () => {
               />
               <Route 
                 path="/results/:id" 
-                element={session ? <Results /> : <Navigate to="/auth" replace />} 
+                element={<Results />} 
               />
               <Route path="/share/:shareId" element={<SharedRoast />} />
               <Route 

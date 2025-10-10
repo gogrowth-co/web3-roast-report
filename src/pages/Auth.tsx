@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
 import { trackSignUp } from '@/utils/analytics';
 import SEO from '@/components/SEO';
+import { Chrome } from "lucide-react";
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -14,49 +15,79 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Function to handle post-login URL submission
-  const handlePendingUrl = async () => {
-    const pendingUrl = sessionStorage.getItem('pending_url');
-    if (!pendingUrl) {
-      navigate('/');
-      return;
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
+  // Claim pending roast after successful authentication
+  useEffect(() => {
+    const claimPendingRoast = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (!session) {
-        toast.error("Authentication error");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('roasts')
-        .insert([
-          { 
-            url: pendingUrl,
-            status: 'pending',
-            user_id: session.user.id
+      if (user) {
+        const pendingRoastId = localStorage.getItem('pending_roast_id');
+        const sessionId = localStorage.getItem('roast_session_id');
+        
+        if (pendingRoastId && sessionId) {
+          try {
+            console.log('Claiming roast:', { pendingRoastId, sessionId });
+            
+            // Call claim-roast edge function
+            const { data, error } = await supabase.functions.invoke('claim-roast', {
+              body: { roastId: pendingRoastId, sessionId }
+            });
+            
+            if (error) {
+              console.error('Failed to claim roast:', error);
+              throw error;
+            }
+            
+            console.log('Roast claimed successfully:', data);
+            
+            // Clean up
+            localStorage.removeItem('pending_roast_id');
+            
+            // Redirect back to results
+            const returnTo = location.state?.returnTo || `/results/${pendingRoastId}`;
+            navigate(returnTo);
+          } catch (error) {
+            console.error('Failed to claim roast:', error);
+            // Still redirect even if claim fails
+            navigate(`/results/${pendingRoastId}`);
           }
-        ])
-        .select('id')
-        .single();
+        } else {
+          // Handle legacy pending_url flow
+          const pendingUrl = sessionStorage.getItem('pending_url');
+          if (pendingUrl) {
+            try {
+              const { data, error } = await supabase
+                .from('roasts')
+                .insert([
+                  { 
+                    url: pendingUrl,
+                    status: 'pending',
+                    user_id: user.id
+                  }
+                ])
+                .select('id')
+                .single();
 
-      if (error) throw error;
-      
-      // Clear the pending URL
-      sessionStorage.removeItem('pending_url');
-      
-      toast.success("Analysis started!");
-      navigate(`/results/${data.id}`);
-      
-    } catch (error: any) {
-      toast.error(error.message);
-      console.error(error);
-      navigate('/');
-    }
-  };
+              if (error) throw error;
+              
+              sessionStorage.removeItem('pending_url');
+              toast.success("Analysis started!");
+              navigate(`/results/${data.id}`);
+            } catch (error: any) {
+              toast.error(error.message);
+              console.error(error);
+              navigate('/');
+            }
+          }
+        }
+      }
+    };
+
+    const timer = setTimeout(claimPendingRoast, 500);
+    return () => clearTimeout(timer);
+  }, [location, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,12 +126,30 @@ const Auth = () => {
         });
         if (error) throw error;
         toast.success("Successfully logged in!");
-        await handlePendingUrl();
+        // Pending roast claiming is handled by useEffect
       }
     } catch (error: any) {
       console.error("Authentication error:", error);
       toast.error(error.message);
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth`
+        }
+      });
+      
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("Google sign-in error:", error);
+      toast.error(error.message);
       setIsLoading(false);
     }
   };
@@ -158,6 +207,26 @@ const Auth = () => {
             className="w-full bg-web3-orange hover:bg-web3-orange/90"
           >
             {isLoading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+          </Button>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-700" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-zinc-900 px-2 text-gray-400">Or continue with</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGoogleSignIn}
+            disabled={isLoading}
+            className="w-full border-gray-700 hover:bg-gray-800"
+          >
+            <Chrome className="mr-2 h-4 w-4" />
+            Google
           </Button>
 
           <div className="text-center">

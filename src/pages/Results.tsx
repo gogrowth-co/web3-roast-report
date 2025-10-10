@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useRoastStatus } from '@/hooks/useRoastStatus';
 import LoadingState from '@/components/results/LoadingState';
 import ErrorState from '@/components/results/ErrorState';
@@ -7,6 +7,7 @@ import ScreenshotSection from '@/components/results/ScreenshotSection';
 import FeedbackSection from '@/components/results/FeedbackSection';
 import ScoreSummary from '@/components/results/ScoreSummary';
 import UpgradeBanner from '@/components/results/UpgradeBanner';
+import SignupOverlay from '@/components/results/SignupOverlay';
 import { useSession } from '@/hooks/useSession';
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
@@ -14,11 +15,13 @@ import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import SEO from '@/components/SEO';
+import { cn } from '@/lib/utils';
 import type { AIAnalysis } from '@/types/analysis';
 
 const Results = () => {
   const { id } = useParams();
   const { user } = useSession();
+  const navigate = useNavigate();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [pageTitle, setPageTitle] = useState("Loading Results - Web3 ROAST");
   const [pageDescription, setPageDescription] = useState("Analyzing your Web3 project for UX issues and conversion opportunities.");
@@ -27,7 +30,20 @@ const Results = () => {
     return <ErrorState title="Invalid roast ID" />;
   }
 
-  const { data: roast, isLoading, error, retryAnalysis, isRetrying, retryCount } = useRoastStatus(id);
+  const { data: roast, isLoading, error, retryAnalysis, isRetrying, retryCount, isAnonymous } = useRoastStatus(id);
+
+  const handleSignUp = () => {
+    // Store roast ID to claim after signup
+    localStorage.setItem('pending_roast_id', id);
+    
+    // Navigate to signup with return URL
+    navigate('/auth', { 
+      state: { 
+        returnTo: `/results/${id}`,
+        mode: 'signup' 
+      } 
+    });
+  };
 
   useEffect(() => {
     if (roast && roast.url) {
@@ -211,7 +227,26 @@ const Results = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
-            <FeedbackSection findings={analysis.findings} />
+            
+            {/* Detailed Feedback with blur overlay for anonymous users */}
+            <div className="relative">
+              <div className={cn(
+                !user && isAnonymous && "filter blur-lg select-none pointer-events-none"
+              )}>
+                <FeedbackSection findings={analysis.findings} />
+              </div>
+              
+              {!user && isAnonymous && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-xl">
+                  <SignupOverlay
+                    onSignUp={handleSignUp}
+                    title="Sign Up to See Full Analysis"
+                    description="Get access to detailed feedback, actionable recommendations, and expert insights to improve your Web3 landing page."
+                    icon="lock"
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <div className="lg:col-span-1 space-y-6">
             <ScoreSummary 
@@ -219,24 +254,40 @@ const Results = () => {
               categories={analysis.categories}
               summary={analysis.summary}
               rawAnalysis={analysis.rawAnalysis}
+              isAnonymous={isAnonymous}
+              user={user}
+              onSignUp={handleSignUp}
             />
 
-            <Button
-              className="w-full group relative overflow-hidden"
-              variant="default"
-              size="lg"
-              disabled={isUpgrading}
-              onClick={handleUpgradeClick}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
-              <div className="relative flex items-center justify-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                <span>{isUpgrading ? 'Processing...' : 'Upgrade to Expert Video Roast'}</span>
+            {user && (
+              <>
+                <Button
+                  className="w-full group relative overflow-hidden"
+                  variant="default"
+                  size="lg"
+                  disabled={isUpgrading}
+                  onClick={handleUpgradeClick}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative flex items-center justify-center gap-2">
+                    <Sparkles className="h-5 w-5" />
+                    <span>{isUpgrading ? 'Processing...' : 'Upgrade to Expert Video Roast'}</span>
+                  </div>
+                </Button>
+                <p className="text-sm text-gray-400 text-center">
+                  Get expert personalized video feedback
+                </p>
+              </>
+            )}
+            
+            {!user && isAnonymous && (
+              <div className="text-center p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+                <p className="text-white font-semibold mb-2">Want the Full Report?</p>
+                <Button onClick={handleSignUp} className="w-full bg-gradient-to-r from-purple-500 to-pink-500">
+                  Sign Up - It's Free
+                </Button>
               </div>
-            </Button>
-            <p className="text-sm text-gray-400 text-center">
-              Get expert personalized video feedback
-            </p>
+            )}
           </div>
         </div>
 

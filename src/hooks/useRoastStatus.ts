@@ -14,6 +14,7 @@ const RETRY_DELAY = 2000; // 2 seconds
 export const useRoastStatus = (roastId: string) => {
   const [isAnalysisStarted, setIsAnalysisStarted] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   // Function to start the analysis with retry logic
   const startAnalysis = async () => {
@@ -72,23 +73,46 @@ export const useRoastStatus = (roastId: string) => {
     setIsAnalysisStarted(false);
   };
 
-  // Poll for status updates every 3 seconds
+  // Poll for status updates every 3 seconds - check both tables
   const result = useQuery({
     queryKey: ['roast', roastId],
     queryFn: async () => {
       console.log("Fetching roast status for:", roastId);
-      const { data, error } = await supabase
+      
+      // Try roasts table first
+      const { data: roastData, error: roastError } = await supabase
         .from('roasts')
         .select('*')
         .eq('id', roastId)
-        .single();
+        .maybeSingle();
       
-      if (error) {
-        console.error("Error fetching roast:", error);
-        throw error;
+      if (roastData) {
+        console.log("Found roast in roasts table:", roastData);
+        setIsAnonymous(false);
+        return roastData;
       }
-      console.log("Roast data:", data);
-      return data;
+      
+      // If not found, try anonymous_roasts table
+      console.log("Roast not in roasts table, checking anonymous_roasts");
+      const { data: anonymousData, error: anonymousError } = await supabase
+        .from('anonymous_roasts')
+        .select('*')
+        .eq('id', roastId)
+        .maybeSingle();
+      
+      if (anonymousData) {
+        console.log("Found roast in anonymous_roasts table:", anonymousData);
+        setIsAnonymous(true);
+        return anonymousData;
+      }
+      
+      // If not found in either table
+      if (roastError || anonymousError) {
+        console.error("Error fetching roast:", roastError || anonymousError);
+        throw roastError || anonymousError;
+      }
+      
+      throw new Error("Roast not found");
     },
     refetchInterval: 3000, // Poll every 3 seconds for faster updates
   });
@@ -97,6 +121,7 @@ export const useRoastStatus = (roastId: string) => {
     ...result,
     retryAnalysis,
     isRetrying: retryCount > 0,
-    retryCount
+    retryCount,
+    isAnonymous
   };
 };

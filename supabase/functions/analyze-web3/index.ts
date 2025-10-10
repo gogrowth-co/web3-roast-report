@@ -25,11 +25,12 @@ serve(async (req) => {
     // Validate environment variables
     const { supabaseUrl, supabaseKey, screenshotApiKey, openAIApiKey } = validateEnvironmentVars();
     
-    // Update status to processing
-    await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'processing');
-    
-    // Fetch the roast record to get the URL
+    // Fetch the roast record from both tables
     console.log("Fetching roast details");
+    let roastData;
+    let isAnonymous = false;
+    
+    // Try roasts table first
     const roastResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}&select=url`, {
       headers: {
         'Authorization': `Bearer ${supabaseKey}`,
@@ -37,25 +38,49 @@ serve(async (req) => {
       }
     });
     
-    if (!roastResponse.ok) {
-      const errorText = await roastResponse.text();
-      console.error("Failed to fetch roast details:", errorText);
-      throw new Error(`Failed to fetch roast details: ${roastResponse.status} ${roastResponse.statusText}`);
+    if (roastResponse.ok) {
+      const data = await roastResponse.json();
+      if (data && data.length > 0) {
+        roastData = data[0];
+        console.log("Found roast in roasts table");
+      }
     }
     
-    const roastData = await roastResponse.json();
-    if (!roastData || roastData.length === 0) {
-      console.error("Roast not found");
+    // If not found, try anonymous_roasts table
+    if (!roastData) {
+      console.log("Roast not found in roasts table, checking anonymous_roasts");
+      const anonymousResponse = await fetch(`${supabaseUrl}/rest/v1/anonymous_roasts?id=eq.${roastId}&select=url`, {
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        }
+      });
+      
+      if (anonymousResponse.ok) {
+        const data = await anonymousResponse.json();
+        if (data && data.length > 0) {
+          roastData = data[0];
+          isAnonymous = true;
+          console.log("Found roast in anonymous_roasts table");
+        }
+      }
+    }
+    
+    if (!roastData) {
+      console.error("Roast not found in either table");
       throw new Error('Roast not found');
     }
     
-    const roast = roastData[0];
+    const roast = roastData; // roastData is already the first element
     if (!roast.url) {
       console.error("Roast URL is missing");
       throw new Error('Roast URL is missing');
     }
     
     console.log("Found roast with URL:", roast.url);
+    
+    // Update status to processing
+    await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'processing', {}, isAnonymous);
 
     try {
       // Scrape website content for text analysis
@@ -93,7 +118,7 @@ serve(async (req) => {
       };
       
       console.log("Update data:", JSON.stringify(updateData));
-      await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'completed', updateData);
+      await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'completed', updateData, isAnonymous);
 
       console.log("Analysis completed and stored successfully for roastId:", roastId);
       return new Response(JSON.stringify({ success: true }), {
@@ -105,7 +130,7 @@ serve(async (req) => {
       const errorMessage = processingError instanceof Error ? processingError.message : 'Unknown error';
       await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'failed', {
         error_message: errorMessage
-      });
+      }, isAnonymous);
       throw processingError;
     }
   } catch (error) {

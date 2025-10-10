@@ -101,22 +101,25 @@ export function validateRequest(roastId: string): void {
   }
 }
 
-// Update roast status helper
+// Update roast status helper (supports both roasts and anonymous_roasts)
 export async function updateRoastStatus(
   supabaseUrl: string, 
   supabaseKey: string, 
   roastId: string, 
   status: string, 
-  additionalData?: Record<string, any>
+  additionalData?: Record<string, any>,
+  isAnonymous: boolean = false
 ) {
-  console.log(`Updating roast status to '${status}' for roastId: ${roastId}`);
+  console.log(`Updating ${isAnonymous ? 'anonymous_roasts' : 'roasts'} status to '${status}' for roastId: ${roastId}`);
   
   const updateData = {
     status,
     ...additionalData
   };
   
-  const response = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}`, {
+  const tableName = isAnonymous ? 'anonymous_roasts' : 'roasts';
+  
+  const response = await fetch(`${supabaseUrl}/rest/v1/${tableName}?id=eq.${roastId}`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${supabaseKey}`,

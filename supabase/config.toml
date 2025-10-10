@@ -79,3 +79,7 @@ port = 54321
 [functions.analyze-web3]
 # Verify JWT
 verify_jwt = true
+
+[functions.claim-roast]
+# Verify JWT - this function requires authentication
+verify_jwt = true
