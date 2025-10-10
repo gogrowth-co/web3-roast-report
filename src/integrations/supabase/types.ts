@@ -127,6 +127,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          count: number | null
+          key: string
+          window_start: string | null
+        }
+        Insert: {
+          count?: number | null
+          key: string
+          window_start?: string | null
+        }
+        Update: {
+          count?: number | null
+          key?: string
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       roast_results: {
         Row: {
           created_at: string | null
@@ -224,7 +242,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_rate_limit: {
+        Args: {
+          limit_key: string
+          max_requests?: number
+          window_minutes?: number
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
