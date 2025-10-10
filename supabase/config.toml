@@ -77,8 +77,8 @@ enable_confirmations = false
 port = 54321
 
 [functions.analyze-web3]
-# Verify JWT
-verify_jwt = true
+# Disable JWT verification to support anonymous users, but implement rate limiting
+verify_jwt = false
 
 [functions.claim-roast]
 # Verify JWT - this function requires authentication

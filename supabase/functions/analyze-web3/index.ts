@@ -15,7 +15,7 @@ serve(async (req) => {
   try {
     // Extract request data
     const requestData = await req.json();
-    const { roastId } = requestData;
+    const { roastId, sessionId } = requestData;
     
     console.log("Starting analysis for roastId:", roastId);
     
@@ -24,6 +24,35 @@ serve(async (req) => {
 
     // Validate environment variables
     const { supabaseUrl, supabaseKey, screenshotApiKey, openAIApiKey } = validateEnvironmentVars();
+    
+    // Rate limiting: Check if this session/IP has exceeded limits
+    const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimitKey = sessionId || clientIP;
+    
+    console.log("Checking rate limit for key:", rateLimitKey);
+    const rateLimitResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/check_rate_limit`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        limit_key: rateLimitKey,
+        max_requests: 5,
+        window_minutes: 60
+      })
+    });
+    
+    if (rateLimitResponse.ok) {
+      const isAllowed = await rateLimitResponse.json();
+      if (!isAllowed) {
+        console.error("Rate limit exceeded for key:", rateLimitKey);
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+    } else {
+      console.warn("Rate limit check failed, proceeding anyway");
+    }
     
     // Fetch the roast record from both tables
     console.log("Fetching roast details");
@@ -71,10 +100,22 @@ serve(async (req) => {
       throw new Error('Roast not found');
     }
     
-    const roast = roastData; // roastData is already the first element
+    const roast = roastData;
     if (!roast.url) {
       console.error("Roast URL is missing");
       throw new Error('Roast URL is missing');
+    }
+    
+    // Validate roast status
+    if (roast.status !== 'pending') {
+      console.error("Roast is not in pending status:", roast.status);
+      throw new Error('Roast has already been processed');
+    }
+    
+    // For anonymous roasts, validate session ID
+    if (isAnonymous && sessionId && roast.session_id !== sessionId) {
+      console.error("Session ID mismatch");
+      throw new Error('Invalid session');
     }
     
     console.log("Found roast with URL:", roast.url);

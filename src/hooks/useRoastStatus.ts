@@ -24,10 +24,14 @@ export const useRoastStatus = (roastId: string) => {
       console.log("Starting analysis for roastId:", roastId);
       setIsAnalysisStarted(true);
       
+      // Get session ID for anonymous users
+      const sessionId = localStorage.getItem('roast_session_id');
+      
       // Call the analyze-web3 function
       const { data, error } = await supabase.functions.invoke('analyze-web3', {
         body: { 
           roastId,
+          sessionId,
           timestamp: new Date().toISOString()
         }
       });
