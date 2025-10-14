@@ -129,15 +129,17 @@ export default function Dashboard() {
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
         
-        <main className="flex-1 container mx-auto px-4 py-8 max-w-7xl">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-4xl font-bold text-foreground mb-2">Your Roasts</h1>
+        <main className="flex-1 container mx-auto px-4 pt-24 sm:pt-32 pb-8 max-w-7xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8">
+            <div className="flex-1">
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">Your Roasts</h1>
               <p className="text-muted-foreground">
                 Manage and track all your Web3 project analyses
               </p>
             </div>
-            <NewRoastDialog />
+            <div className="w-full sm:w-auto">
+              <NewRoastDialog />
+            </div>
           </div>
 
           {isLoading ? (
