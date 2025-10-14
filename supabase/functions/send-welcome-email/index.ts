@@ -28,6 +28,8 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.emails.send({
       from: "Web3ROAST <contact@email.web3roast.com>",
       to: [email],
+      reply_to: ["contact@web3roast.com"],
+      bcc: ["contact@web3roast.com"],
       subject: "Welcome to Web3 ROAST! 🔥",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
