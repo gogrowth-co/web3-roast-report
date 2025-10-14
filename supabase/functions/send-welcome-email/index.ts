@@ -26,7 +26,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending welcome email to:", email);
 
     const emailResponse = await resend.emails.send({
-      from: "Web3 ROAST <onboarding@resend.dev>",
+      from: "Web3ROAST <contact@email.web3roast.com>",
       to: [email],
       subject: "Welcome to Web3 ROAST! 🔥",
       html: `
