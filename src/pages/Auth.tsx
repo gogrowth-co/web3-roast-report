@@ -114,11 +114,19 @@ const Auth = () => {
         // Track signup event for analytics
         trackSignUp('email');
         
-        toast.success("Check your email to confirm your account!");
-        console.log("User signup triggered - Zapier webhook should fire automatically");
+        // Send welcome email
+        try {
+          await supabase.functions.invoke('send-welcome-email', {
+            body: { email, name: email.split('@')[0] }
+          });
+          console.log("Welcome email sent successfully");
+        } catch (emailError) {
+          console.error("Failed to send welcome email:", emailError);
+          // Don't fail the signup if email fails
+        }
         
-        // Add additional webhook debug logging
-        console.log("Webhook should be triggered by database directly via trigger_zapier_on_new_user() function");
+        toast.success("Check your email to confirm your account!");
+        console.log("User signup triggered - welcome email sent");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,

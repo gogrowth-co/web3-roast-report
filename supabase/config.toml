@@ -83,3 +83,7 @@ verify_jwt = false
 [functions.claim-roast]
 # Verify JWT - this function requires authentication
 verify_jwt = true
+
+[functions.send-welcome-email]
+# Disable JWT verification to allow calling right after signup
+verify_jwt = false
