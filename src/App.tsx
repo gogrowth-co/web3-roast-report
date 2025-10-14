@@ -15,6 +15,7 @@ import Results from "./pages/Results";
 import SharedRoast from "./pages/SharedRoast";
 import OrderComplete from "./pages/OrderComplete";
 import About from "./pages/About";
+import Dashboard from "./pages/Dashboard";
 
 // Track page views
 const RouteChangeTracker = () => {
@@ -45,6 +46,10 @@ const App = () => {
               <Route 
                 path="/auth" 
                 element={!session ? <Auth /> : <Navigate to="/" replace />} 
+              />
+              <Route 
+                path="/dashboard" 
+                element={session ? <Dashboard /> : <Navigate to="/auth" replace />} 
               />
               <Route 
                 path="/results/:id" 

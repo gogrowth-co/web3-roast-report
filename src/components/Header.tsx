@@ -61,7 +61,7 @@ const Header = () => {
             <div className="w-[105px] h-10"></div>
           ) : session ? (
             <Button variant="default" className="bg-web3-purple hover:bg-web3-purple/90 text-white" asChild>
-              <Link to="/results">Dashboard</Link>
+              <Link to="/dashboard">Dashboard</Link>
             </Button>
           ) : (
             <Button 

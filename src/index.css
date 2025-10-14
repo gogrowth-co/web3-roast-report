@@ -5,35 +5,31 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
+    --background: 0 0% 4%;
     --foreground: 0 0% 100%;
-
-    --card: 222 47% 13%;
+    --card: 0 0% 10%;
     --card-foreground: 0 0% 100%;
-
-    --popover: 222 47% 11%;
+    --popover: 0 0% 10%;
     --popover-foreground: 0 0% 100%;
-
     --primary: 255 80% 75%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 215 25% 27%;
+    --secondary: 0 0% 63%;
     --secondary-foreground: 0 0% 100%;
-
-    --muted: 217 33% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 24 95% 53%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 63%;
+    --accent: 262 83% 58%;
     --accent-foreground: 0 0% 100%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 255 80% 75%;
-
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 262 83% 58%;
     --radius: 0.75rem;
+    
+    --status-completed: 142 71% 45%;
+    --status-pending: 38 92% 50%;
+    --status-processing: 217 91% 60%;
+    --status-failed: 0 84% 60%;
   }
 }
 
