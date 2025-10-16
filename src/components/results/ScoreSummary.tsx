@@ -16,9 +16,10 @@ interface ScoreSummaryProps {
   isAnonymous?: boolean;
   user?: User | null;
   onSignUp?: () => void;
+  showOverallPerformance?: boolean;
 }
 
-const ScoreSummary = ({ score, categories, summary, rawAnalysis, isAnonymous = false, user = null, onSignUp }: ScoreSummaryProps) => {
+const ScoreSummary = ({ score, categories, summary, rawAnalysis, isAnonymous = false, user = null, onSignUp, showOverallPerformance = true }: ScoreSummaryProps) => {
   // Generate performance overview that highlights strengths and weaknesses
   const getPerformanceSummary = () => {
     // Find top category and weakest category
@@ -53,18 +54,20 @@ const ScoreSummary = ({ score, categories, summary, rawAnalysis, isAnonymous = f
 
   return (
     <div className="space-y-6">
-      <Card className="border-zinc-800 bg-zinc-900">
-        <CardHeader className="pb-2">
-          <h2 className="text-xl font-semibold">Overall Performance</h2>
-          <p className="text-gray-400">How your Web3 project scores</p>
-        </CardHeader>
-        <CardContent>
-          <ScoreCircle score={score} />
-          <p className="text-base text-gray-200 mt-6">
-            {getPerformanceSummary()}
-          </p>
-        </CardContent>
-      </Card>
+      {showOverallPerformance && (
+        <Card className="border-zinc-800 bg-zinc-900">
+          <CardHeader className="pb-2">
+            <h2 className="text-xl font-semibold">Overall Performance</h2>
+            <p className="text-gray-400">How your Web3 project scores</p>
+          </CardHeader>
+          <CardContent>
+            <ScoreCircle score={score} />
+            <p className="text-base text-gray-200 mt-6">
+              {getPerformanceSummary()}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-zinc-800 bg-zinc-900">
         <CardHeader className="pb-2">

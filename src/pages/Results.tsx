@@ -278,6 +278,7 @@ const Results = () => {
               isAnonymous={isAnonymous}
               user={user}
               onSignUp={handleSignUp}
+              showOverallPerformance={false}
             />
             
             {/* Detailed Feedback - Mobile */}
