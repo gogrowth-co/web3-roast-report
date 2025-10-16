@@ -232,7 +232,7 @@ const Results = () => {
           <div className="lg:hidden space-y-6">
             {/* Overall Performance Score - Mobile */}
             <Card className="border-zinc-800 bg-zinc-900">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 text-center">
                 <h2 className="text-xl font-semibold">Overall Performance</h2>
                 <p className="text-gray-400">How your Web3 project scores</p>
               </CardHeader>
