@@ -126,6 +126,7 @@ const Results = () => {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
           roastId: id,
+          priceId: 'price_1RLzE6D41aNWIHmdgGD6v8J2',
         }
       });
 
@@ -228,6 +229,28 @@ const Results = () => {
           <div className="lg:col-span-2 space-y-6">
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
             
+            {/* Upgrade CTA - Mobile only (below screenshot, above feedback) */}
+            {user && (
+              <div className="lg:hidden">
+                <Button
+                  className="w-full group relative overflow-hidden"
+                  variant="default"
+                  size="lg"
+                  disabled={isUpgrading}
+                  onClick={handleUpgradeClick}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 group-hover:from-orange-600 group-hover:to-pink-600 transition-all"></div>
+                  <div className="relative flex items-center justify-center gap-2">
+                    <Sparkles className="h-5 w-5" />
+                    <span>{isUpgrading ? 'Processing...' : 'Upgrade to Pro Roast for $49'}</span>
+                  </div>
+                </Button>
+                <p className="text-sm text-gray-400 text-center mt-2">
+                  Get expert personalized video feedback
+                </p>
+              </div>
+            )}
+            
             {/* Detailed Feedback with blur overlay for anonymous users */}
             <div className="relative">
               <div className={cn(
@@ -259,8 +282,9 @@ const Results = () => {
               onSignUp={handleSignUp}
             />
 
+            {/* Upgrade CTA - Desktop only (in sidebar) */}
             {user && (
-              <>
+              <div className="hidden lg:block">
                 <Button
                   className="w-full group relative overflow-hidden"
                   variant="default"
@@ -268,16 +292,16 @@ const Results = () => {
                   disabled={isUpgrading}
                   onClick={handleUpgradeClick}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 group-hover:from-orange-600 group-hover:to-pink-600 transition-all"></div>
                   <div className="relative flex items-center justify-center gap-2">
                     <Sparkles className="h-5 w-5" />
-                    <span>{isUpgrading ? 'Processing...' : 'Upgrade to Expert Video Roast'}</span>
+                    <span>{isUpgrading ? 'Processing...' : 'Upgrade to Pro Roast for $49'}</span>
                   </div>
                 </Button>
-                <p className="text-sm text-gray-400 text-center">
+                <p className="text-sm text-gray-400 text-center mt-2">
                   Get expert personalized video feedback
                 </p>
-              </>
+              </div>
             )}
             
             {!user && isAnonymous && (
