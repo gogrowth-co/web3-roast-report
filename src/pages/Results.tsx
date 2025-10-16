@@ -8,10 +8,12 @@ import FeedbackSection from '@/components/results/FeedbackSection';
 import ScoreSummary from '@/components/results/ScoreSummary';
 import UpgradeBanner from '@/components/results/UpgradeBanner';
 import SignupOverlay from '@/components/results/SignupOverlay';
+import ScoreCircle from '@/components/ScoreCircle';
 import { useSession } from '@/hooks/useSession';
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import SEO from '@/components/SEO';
@@ -226,25 +228,28 @@ const Results = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Overall Performance - Mobile only (above screenshot) */}
-            <div className="lg:hidden">
-              <ScoreSummary 
-                score={analysis.score} 
-                categories={analysis.categories}
-                summary={analysis.summary}
-                rawAnalysis={analysis.rawAnalysis}
-                isAnonymous={isAnonymous}
-                user={user}
-                onSignUp={handleSignUp}
-              />
-            </div>
-            
+          {/* Mobile Layout */}
+          <div className="lg:hidden space-y-6">
+            {/* Overall Performance Score - Mobile */}
+            <Card className="border-zinc-800 bg-zinc-900">
+              <CardHeader className="pb-2">
+                <h2 className="text-xl font-semibold">Overall Performance</h2>
+                <p className="text-gray-400">How your Web3 project scores</p>
+              </CardHeader>
+              <CardContent>
+                <ScoreCircle score={analysis.score} />
+                <p className="text-base text-gray-200 mt-6">
+                  {`Your Web3 landing page ${analysis.score >= 80 ? 'performs strongly' : analysis.score >= 60 ? 'shows promise but needs refinement' : analysis.score >= 40 ? 'needs targeted improvements' : 'needs significant improvement'} with an overall score of ${analysis.score}.`}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Screenshot Section - Mobile */}
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
             
-            {/* Upgrade CTA - Mobile only (below screenshot, above feedback) */}
+            {/* Upgrade CTA - Mobile */}
             {user && (
-              <div className="lg:hidden">
+              <div>
                 <Button
                   className="w-full group relative overflow-hidden"
                   variant="default"
@@ -263,6 +268,52 @@ const Results = () => {
                 </p>
               </div>
             )}
+
+            {/* Category Breakdown and Next Steps - Mobile */}
+            <ScoreSummary 
+              score={analysis.score} 
+              categories={analysis.categories}
+              summary={analysis.summary}
+              rawAnalysis={analysis.rawAnalysis}
+              isAnonymous={isAnonymous}
+              user={user}
+              onSignUp={handleSignUp}
+            />
+            
+            {/* Detailed Feedback - Mobile */}
+            <div className="relative">
+              <div className={cn(
+                !user && isAnonymous && "filter blur-lg select-none pointer-events-none"
+              )}>
+                <FeedbackSection findings={analysis.findings} />
+              </div>
+              
+              {!user && isAnonymous && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-xl">
+                  <SignupOverlay
+                    onSignUp={handleSignUp}
+                    title="Sign Up to See Full Analysis"
+                    description="Get access to detailed feedback, actionable recommendations, and expert insights to improve your Web3 landing page."
+                    icon="lock"
+                  />
+                </div>
+              )}
+            </div>
+            
+            {!user && isAnonymous && (
+              <div className="text-center p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+                <p className="text-white font-semibold mb-2">Want the Full Report?</p>
+                <Button onClick={handleSignUp} className="w-full bg-gradient-to-r from-purple-500 to-pink-500">
+                  Sign Up - It's Free
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden lg:block lg:col-span-2 space-y-6">
+            <ScreenshotSection screenshotUrl={roast.screenshot_url} />
+            
             
             {/* Detailed Feedback with blur overlay for anonymous users */}
             <div className="relative">
@@ -284,23 +335,21 @@ const Results = () => {
               )}
             </div>
           </div>
-          <div className="lg:col-span-1 space-y-6">
+          <div className="hidden lg:block lg:col-span-1 space-y-6">
             {/* Overall Performance - Desktop only (in sidebar) */}
-            <div className="hidden lg:block">
-              <ScoreSummary 
-                score={analysis.score} 
-                categories={analysis.categories}
-                summary={analysis.summary}
-                rawAnalysis={analysis.rawAnalysis}
-                isAnonymous={isAnonymous}
-                user={user}
-                onSignUp={handleSignUp}
-              />
-            </div>
+            <ScoreSummary
+              score={analysis.score} 
+              categories={analysis.categories}
+              summary={analysis.summary}
+              rawAnalysis={analysis.rawAnalysis}
+              isAnonymous={isAnonymous}
+              user={user}
+              onSignUp={handleSignUp}
+            />
 
             {/* Upgrade CTA - Desktop only (in sidebar) */}
             {user && (
-              <div className="hidden lg:block">
+              <div>
                 <Button
                   className="w-full group relative overflow-hidden"
                   variant="default"
