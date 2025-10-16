@@ -29,20 +29,20 @@ const ScreenshotSection = ({ screenshotUrl }: ScreenshotSectionProps) => {
   return (
     <Card className="border-zinc-800 bg-zinc-900">
       <CardHeader className="pb-2">
-        <div className="flex justify-between items-center">
-          <div>
+        <div className="flex justify-between items-center gap-2">
+          <div className="min-w-0 flex-1">
             <h2 className="text-xl font-semibold">Screenshot</h2>
-            <p className="text-gray-400">Captured view of your Web3 project</p>
+            <p className="text-gray-400 text-sm md:text-base">Captured view of your Web3 project</p>
           </div>
           {screenshotUrl && !isLoading && !hasError && (
             <Button 
               variant="outline" 
               size="sm" 
               onClick={toggleFullView}
-              className="border-zinc-700 hover:bg-zinc-800"
+              className="border-zinc-700 hover:bg-zinc-800 flex-shrink-0 whitespace-nowrap text-xs md:text-sm"
             >
-              <Maximize2 className="h-4 w-4 mr-1" />
-              {isFullView ? 'Show Preview' : 'Show Full Page'}
+              <Maximize2 className="h-3 w-3 md:h-4 md:w-4 md:mr-1" />
+              <span className="hidden sm:inline">{isFullView ? 'Show Preview' : 'Show Full Page'}</span>
             </Button>
           )}
         </div>

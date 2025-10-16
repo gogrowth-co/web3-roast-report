@@ -239,7 +239,16 @@ const Results = () => {
               <CardContent>
                 <ScoreCircle score={analysis.score} />
                 <p className="text-base text-gray-200 mt-6">
-                  {`Your Web3 landing page ${analysis.score >= 80 ? 'performs strongly' : analysis.score >= 60 ? 'shows promise but needs refinement' : analysis.score >= 40 ? 'needs targeted improvements' : 'needs significant improvement'} with an overall score of ${analysis.score}.`}
+                  {(() => {
+                    const sortedCategories = Object.entries(analysis.categories).sort((a, b) => b[1] - a[1]);
+                    const topCategory = sortedCategories[0];
+                    const weakestCategory = sortedCategories[sortedCategories.length - 1];
+                    let performanceLevel = "needs significant improvement";
+                    if (analysis.score >= 80) performanceLevel = "performs strongly";
+                    else if (analysis.score >= 60) performanceLevel = "shows promise but needs refinement";
+                    else if (analysis.score >= 40) performanceLevel = "needs targeted improvements";
+                    return `Your Web3 landing page ${performanceLevel} with an overall score of ${analysis.score}. Your strongest area is ${topCategory?.[0]} where your clear ${topCategory?.[0].toLowerCase()} helps build credibility. However, your ${weakestCategory?.[0]} could be holding you back - consider addressing this first for quick wins. Focus on making your value proposition immediately clear to visitors who may not be familiar with your specific Web3 technology.`;
+                  })()}
                 </p>
               </CardContent>
             </Card>

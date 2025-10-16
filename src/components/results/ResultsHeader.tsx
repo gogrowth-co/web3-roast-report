@@ -94,8 +94,8 @@ const ResultsHeader = () => {
             className="border-zinc-700"
             disabled={isSharing}
           >
-            <Share2 className="h-4 w-4 mr-2" />
-            {isSharing ? "Copying..." : "Copy Share Link"}
+            <Share2 className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">{isSharing ? "Copying..." : "Copy Share Link"}</span>
           </Button>
           <Button 
             variant="outline" 
@@ -103,8 +103,8 @@ const ResultsHeader = () => {
             onClick={handleDownload}
             disabled={isDownloading}
           >
-            <Download className="h-4 w-4 mr-2" />
-            {isDownloading ? "Downloading..." : "Download Report"}
+            <Download className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">{isDownloading ? "Downloading..." : "Download Report"}</span>
           </Button>
         </div>
       </div>
