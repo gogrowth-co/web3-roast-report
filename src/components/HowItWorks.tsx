@@ -23,7 +23,7 @@ const HowItWorks = () => {
     },
     {
       name: "Expert Video Roast",
-      price: "$299",
+      price: "$99",
       description: "In-depth analysis from Web3 conversion experts",
       icon: <FileText className="h-10 w-10 text-web3-orange" />,
       features: [
