@@ -227,6 +227,19 @@ const Results = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {/* Overall Performance - Mobile only (above screenshot) */}
+            <div className="lg:hidden">
+              <ScoreSummary 
+                score={analysis.score} 
+                categories={analysis.categories}
+                summary={analysis.summary}
+                rawAnalysis={analysis.rawAnalysis}
+                isAnonymous={isAnonymous}
+                user={user}
+                onSignUp={handleSignUp}
+              />
+            </div>
+            
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
             
             {/* Upgrade CTA - Mobile only (below screenshot, above feedback) */}
@@ -272,15 +285,18 @@ const Results = () => {
             </div>
           </div>
           <div className="lg:col-span-1 space-y-6">
-            <ScoreSummary 
-              score={analysis.score} 
-              categories={analysis.categories}
-              summary={analysis.summary}
-              rawAnalysis={analysis.rawAnalysis}
-              isAnonymous={isAnonymous}
-              user={user}
-              onSignUp={handleSignUp}
-            />
+            {/* Overall Performance - Desktop only (in sidebar) */}
+            <div className="hidden lg:block">
+              <ScoreSummary 
+                score={analysis.score} 
+                categories={analysis.categories}
+                summary={analysis.summary}
+                rawAnalysis={analysis.rawAnalysis}
+                isAnonymous={isAnonymous}
+                user={user}
+                onSignUp={handleSignUp}
+              />
+            </div>
 
             {/* Upgrade CTA - Desktop only (in sidebar) */}
             {user && (
