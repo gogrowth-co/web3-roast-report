@@ -61,7 +61,7 @@ const ScoreSummary = ({ score, categories, summary, rawAnalysis, isAnonymous = f
             <p className="text-gray-400">How your Web3 project scores</p>
           </CardHeader>
           <CardContent>
-            <ScoreCircle score={score} />
+            <ScoreCircle score={score} id="summary" />
             <p className="text-base text-gray-200 mt-6">
               {getPerformanceSummary()}
             </p>

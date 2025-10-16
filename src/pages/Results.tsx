@@ -237,7 +237,7 @@ const Results = () => {
                 <p className="text-gray-400">How your Web3 project scores</p>
               </CardHeader>
               <CardContent>
-                <ScoreCircle score={analysis.score} />
+                <ScoreCircle score={analysis.score} id="mobile" />
                 <p className="text-base text-gray-200 mt-6">
                   {(() => {
                     const sortedCategories = Object.entries(analysis.categories).sort((a, b) => b[1] - a[1]);
