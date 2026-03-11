@@ -76,23 +76,11 @@ const UrlForm = () => {
         toast.success("Analysis started!");
         navigate(`/results/${data.id}`);
       } else {
-        // Anonymous users - use anonymous_roasts table
-        const { data, error } = await supabase
-          .from('anonymous_roasts')
-          .insert([
-            { 
-              url: trimmedUrl,
-              status: 'pending',
-              session_id: sessionId
-            }
-          ])
-          .select('id')
-          .single();
-
-        if (error) throw error;
-        
-        toast.success("Analysis started!");
-        navigate(`/results/${data.id}`);
+        // Not logged in - save URL and redirect to auth
+        localStorage.setItem('pending_roast_url', trimmedUrl);
+        toast("Please sign in to start your roast 🔥");
+        navigate('/auth');
+        return;
       }
       
     } catch (error: any) {
