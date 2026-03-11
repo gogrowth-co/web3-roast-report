@@ -54,8 +54,8 @@ const Auth = () => {
             navigate(`/results/${pendingRoastId}`);
           }
         } else {
-          // Handle legacy pending_url flow
-          const pendingUrl = sessionStorage.getItem('pending_url');
+          // Check for pending URL from UrlForm redirect
+          const pendingUrl = localStorage.getItem('pending_roast_url') || sessionStorage.getItem('pending_url');
           if (pendingUrl) {
             try {
               const { data, error } = await supabase
@@ -72,6 +72,7 @@ const Auth = () => {
 
               if (error) throw error;
               
+              localStorage.removeItem('pending_roast_url');
               sessionStorage.removeItem('pending_url');
               toast.success("Analysis started!");
               navigate(`/results/${data.id}`);
@@ -80,6 +81,8 @@ const Auth = () => {
               console.error(error);
               navigate('/');
             }
+          } else {
+            navigate('/dashboard');
           }
         }
       }
