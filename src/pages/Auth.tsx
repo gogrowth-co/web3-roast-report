@@ -117,15 +117,14 @@ const Auth = () => {
         // Track signup event for analytics
         trackSignUp('email');
         
-        // Send welcome email
+        // Send welcome email — recipient is derived server-side from the
+        // authenticated user; we only pass an optional display name.
         try {
           await supabase.functions.invoke('send-welcome-email', {
-            body: { email, name: email.split('@')[0] }
+            body: { name: email.split('@')[0] }
           });
-          console.log("Welcome email sent successfully");
         } catch (emailError) {
-          console.error("Failed to send welcome email:", emailError);
-          // Don't fail the signup if email fails
+          // Don't fail signup if welcome email fails
         }
         
         toast.success("Check your email to confirm your account!");
