@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# ============================================================
+# web3-roast-report — Web3 report generation tool
+# ============================================================
+
+language: "en-US"
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        Web3 report tool. Check for:
+        - Hardcoded API keys (blockchain data providers, LLM APIs)
+        - Private key or wallet credentials
+        - Missing validation on user-supplied blockchain addresses
+        - Server-side template injection if reports use templating
+        - Path traversal in file output operations
+
+  tools:
+    semgrep:
+      enabled: true
+    gitleaks:
+      enabled: true
+    trufflehog:
+      enabled: true
+
+chat:
+  auto_reply: true
