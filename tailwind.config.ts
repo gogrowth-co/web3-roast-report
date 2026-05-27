@@ -68,7 +68,9 @@ export default {
 					purple: '#9b87f5',
 					orange: '#F97316',
 					gray: '#222222',
-					'light-gray': '#383838'
+					'light-gray': '#383838',
+					'founder-bg': '#1A1A2E',
+					'founder-orange': '#FF6B35'
 				}
 			},
 			borderRadius: {
