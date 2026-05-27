@@ -1,4 +1,5 @@
 import React from 'react';
+import founderPhoto from '@/assets/gabriel-mangabeira.jpg';
 
 const FounderSection = () => {
   return (
@@ -8,9 +9,11 @@ const FounderSection = () => {
           THE EXPERT BEHIND THE ROAST
         </p>
 
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-web3-gray border-2 border-web3-founder-orange flex items-center justify-center">
-          <span className="text-xl font-bold text-white">GM</span>
-        </div>
+        <img
+          src={founderPhoto}
+          alt="Gabriel Mangabeira"
+          className="w-24 h-24 mx-auto mb-10 rounded-full object-cover border-2 border-web3-founder-orange"
+        />
 
         <h3 className="text-2xl sm:text-3xl font-bold text-white mb-1">
           Gabriel Mangabeira
@@ -20,12 +23,12 @@ const FounderSection = () => {
           Web3 Growth Consultant, Ex-Binance LATAM
         </p>
 
-        <div className="text-white text-base leading-relaxed space-y-4 text-left">
+        <div className="text-white text-base leading-relaxed space-y-4 text-center">
           <p>
             I ran growth at Binance LATAM. I have worked with DeFi protocols, wallets, and CEX/DEX platforms across LATAM and Europe. I built this tool because 90% of Web3 landing pages fail for the same 5 reasons. The teams behind them have no objective data to act on.
           </p>
           <p>
-            The Expert Video Roast is a 20-minute walkthrough I record personally. I screenShare your page, call out every conversion killer, and rank fixes by impact.
+            The Expert Video Roast is a 20-minute walkthrough I record personally. I screenshare your page, call out every conversion killer, and rank fixes by impact.
           </p>
         </div>
       </div>
