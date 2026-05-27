@@ -3,7 +3,7 @@ import founderPhoto from '@/assets/gabriel-mangabeira.jpg';
 
 const FounderSection = () => {
   return (
-    <section className="section-container bg-web3-founder-bg">
+    <section className="py-10 px-6 bg-web3-founder-bg">
       <div className="max-w-[600px] mx-auto text-center">
         <p className="text-xs font-semibold tracking-widest uppercase text-web3-founder-orange mb-8">
           THE EXPERT BEHIND THE ROAST
@@ -12,14 +12,14 @@ const FounderSection = () => {
         <img
           src={founderPhoto}
           alt="Gabriel Mangabeira"
-          className="w-24 h-24 mx-auto mb-10 rounded-full object-cover border-2 border-web3-founder-orange"
+          className="w-24 h-24 mx-auto mb-5 rounded-full object-cover border-2 border-web3-founder-orange"
         />
 
         <h3 className="text-2xl sm:text-3xl font-bold text-white mb-1">
           Gabriel Mangabeira
         </h3>
 
-        <p className="text-sm text-gray-400 mb-8">
+        <p className="text-sm text-gray-400 mb-6">
           Web3 Growth Consultant, Ex-Binance LATAM
         </p>
 
