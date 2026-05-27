@@ -70,7 +70,8 @@ export default {
 					gray: '#222222',
 					'light-gray': '#383838',
 					'founder-bg': '#1A1A2E',
-					'founder-orange': '#FF6B35'
+					'founder-orange': '#FF6B35',
+					'muted-text': '#888888'
 				}
 			},
 			borderRadius: {

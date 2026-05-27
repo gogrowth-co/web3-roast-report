@@ -25,7 +25,7 @@ const FounderSection = () => {
             I ran growth at Binance LATAM. I have worked with DeFi protocols, wallets, and CEX/DEX platforms across LATAM and Europe. I built this tool because 90% of Web3 landing pages fail for the same 5 reasons. The teams behind them have no objective data to act on.
           </p>
           <p>
-            The Expert Video Roast is a 20-minute walkthrough I record personally. I screenshare your page, call out every conversion killer, and rank fixes by impact.
+            The Expert Video Roast is a 20-minute walkthrough I record personally. I screenShare your page, call out every conversion killer, and rank fixes by impact.
           </p>
         </div>
       </div>
