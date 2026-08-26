@@ -21,32 +21,52 @@ export async function handleErrorResponse(error: Error, req: Request): Promise<R
     console.error('Failed to parse request body:', parseError);
   }
   
-  // Try to update the roast status to failed if possible
+  // Try to update the roast status to failed if possible (both tables)
   if (roastId) {
     try {
       const supabaseUrl = Deno.env.get('SUPABASE_URL');
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      
+
       if (supabaseUrl && supabaseKey) {
         console.log("Updating roast status to failed for roastId:", roastId);
-        await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${supabaseKey}`,
-            'apikey': supabaseKey,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({
-            status: 'failed',
-            error_message: error.message || 'Unknown error'
-          })
-        });
+        const payload = {
+          status: 'failed',
+          error_message: (error.message || 'Unknown error').slice(0, 1000)
+        };
+
+        for (const table of ['roasts', 'anonymous_roasts']) {
+          const res = await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${roastId}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${supabaseKey}`,
+              'apikey': supabaseKey,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) {
+            // Last resort: never leave the row stuck on 'processing'
+            console.error(`Failed to write error_message on ${table}:`, await res.text());
+            await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${roastId}`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${supabaseKey}`,
+                'apikey': supabaseKey,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify({ status: 'failed' })
+            });
+          }
+        }
       }
     } catch (updateError) {
       console.error('Failed to update roast status to failed:', updateError);
     }
   }
+
   
   return new Response(JSON.stringify({ 
     error: error.message || 'Unknown error',
