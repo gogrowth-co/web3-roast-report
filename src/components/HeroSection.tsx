@@ -25,8 +25,7 @@ const HeroSection = () => {
         </h1>
         
         <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-10">
-          Get an AI-powered analysis with actionable feedback to dramatically 
-          improve your dApp's conversion rate and user experience.
+          Every roast is recorded personally by Gabriel Mangabeira, ex-Head of Growth at Binance LATAM. You get the wallet-connect drop-offs, the trust gaps, and the copy that loses non-experts, ranked by what costs you the most.
         </p>
         
         <UrlForm />
@@ -34,7 +33,7 @@ const HeroSection = () => {
         <div className="mt-12 flex flex-wrap justify-center gap-x-12 gap-y-6">
           <div className="flex items-center">
             <ArrowRight size={20} className="text-web3-purple mr-2" />
-            <span className="text-gray-300">500+ Projects Analyzed</span>
+            <span className="text-gray-300">Ex-Binance LATAM</span>
           </div>
           <div className="flex items-center">
             <ArrowRight size={20} className="text-web3-purple mr-2" />
