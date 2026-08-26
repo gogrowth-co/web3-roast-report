@@ -174,14 +174,26 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (processingError) {
-      // If there's an error during processing, update the status to failed
+      // If there's an error during processing, update the status to failed.
+      // Never leave the row on 'processing': if writing error_message fails,
+      // fall back to a status-only update so the UI can show an error state.
       console.error("Error during analysis processing:", processingError);
       const errorMessage = processingError instanceof Error ? processingError.message : 'Unknown error';
-      await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'failed', {
-        error_message: errorMessage
-      }, isAnonymous);
+      try {
+        await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'failed', {
+          error_message: errorMessage.slice(0, 1000)
+        }, isAnonymous);
+      } catch (statusError) {
+        console.error("Failed to record error_message, falling back to status-only update:", statusError);
+        try {
+          await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'failed', {}, isAnonymous);
+        } catch (fallbackError) {
+          console.error("Fallback status update also failed:", fallbackError);
+        }
+      }
       throw processingError;
     }
+
   } catch (error) {
     return handleErrorResponse(error as Error, req);
   }
