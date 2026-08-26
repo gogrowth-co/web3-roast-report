@@ -28,14 +28,16 @@ serve(async (req: Request) => {
       );
     }
 
+    // A share link IS the capability token: viewers are anonymous by design, so
+    // this endpoint has to read past RLS. Previously it used the anon key plus
+    // the caller's Authorization header, which meant a logged-out visitor could
+    // never read the roast and every share link 404'd. Elevated access is safe
+    // here because both queries below are scoped to the single roast that the
+    // share_id resolves to, and nothing else is ever returned.
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization") || "" },
-        },
-      }
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
     );
 
     // Get the shared roast record

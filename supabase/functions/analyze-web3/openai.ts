@@ -47,13 +47,52 @@ interface ScrapedContent {
   success: boolean;
 }
 
+export interface AiKeys {
+  geminiApiKey?: string;
+  geminiApiKey2?: string;
+  openRouterApiKey?: string;
+}
+
+// Provider chain, tried in order. Gemini first: it is on its own key and its
+// free tier covers this volume. OpenRouter is the fallback only, because it
+// draws on a shared balance that other pipelines can drain.
+function buildProviderChain(keys: AiKeys) {
+  const chain: { name: string; endpoint: string; key: string; model: string }[] = [];
+
+  if (keys.geminiApiKey) {
+    chain.push({
+      name: 'gemini',
+      endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      key: keys.geminiApiKey,
+      model: 'gemini-2.5-flash',
+    });
+  }
+  if (keys.geminiApiKey2) {
+    chain.push({
+      name: 'gemini-key2',
+      endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      key: keys.geminiApiKey2,
+      model: 'gemini-2.5-flash',
+    });
+  }
+  if (keys.openRouterApiKey) {
+    chain.push({
+      name: 'openrouter',
+      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+      key: keys.openRouterApiKey,
+      model: 'google/gemini-2.5-flash',
+    });
+  }
+  return chain;
+}
+
 export async function generateWebsiteAnalysis(
   url: string,
   screenshotUrl: string,
-  openAIApiKey: string,
+  aiKeys: AiKeys,
   scrapedContent?: ScrapedContent
 ): Promise<any> {
-  console.log("Starting OpenAI analysis for URL:", url);
+  console.log("Starting AI analysis for URL:", url);
   
   // Build context from scraped content
   let contentContext = '';
@@ -134,36 +173,59 @@ Tone: Candid. Tactical. No filler. Write like a smart Web3 founder is reading th
 
 Use BOTH the screenshot (${screenshotUrl}) for visual analysis AND the scraped text content for precise copy analysis.${contentContext}`;
 
-  console.log("Sending request to OpenAI");
-  try {
-    const openAIResponse = await fetchWithRetry('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: `Analyze this Web3 landing page at ${url}. Use the screenshot for visual analysis and the scraped content for precise text analysis.` },
-              { type: "image_url", image_url: { url: screenshotUrl } }
-            ]
-          }
-        ]
-      }),
-    });
+  const providers = buildProviderChain(aiKeys);
+  if (providers.length === 0) {
+    throw new Error('No AI provider configured. Set GEMINI_API_KEY (or OPENROUTER_API_KEY).');
+  }
 
-    const aiData = await openAIResponse.json();
-    console.log("OpenAI analysis completed successfully");
-    
-    if (!aiData.choices || aiData.choices.length === 0 || !aiData.choices[0].message || !aiData.choices[0].message.content) {
-      console.error("Invalid OpenAI response format:", aiData);
-      throw new Error('Invalid response from OpenAI API');
+  const requestBody = {
+    messages: [
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: `Analyze this Web3 landing page at ${url}. Use the screenshot for visual analysis and the scraped content for precise text analysis.` },
+          { type: "image_url", image_url: { url: screenshotUrl } }
+        ]
+      }
+    ]
+  };
+
+  let aiData: any = null;
+  const providerErrors: string[] = [];
+
+  for (const provider of providers) {
+    try {
+      console.log(`Sending request to ${provider.name} (${provider.model})`);
+      const aiResponse = await fetchWithRetry(provider.endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${provider.key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ model: provider.model, ...requestBody }),
+      });
+
+      const candidate = await aiResponse.json();
+      if (!candidate.choices || candidate.choices.length === 0 || !candidate.choices[0].message || !candidate.choices[0].message.content) {
+        throw new Error(`Invalid response format from ${provider.name}`);
+      }
+
+      aiData = candidate;
+      console.log(`Analysis completed successfully via ${provider.name}`);
+      break;
+    } catch (providerError) {
+      const msg = providerError instanceof Error ? providerError.message : String(providerError);
+      console.error(`Provider ${provider.name} failed: ${msg}`);
+      providerErrors.push(`${provider.name}: ${msg.slice(0, 200)}`);
     }
+  }
+
+  if (!aiData) {
+    throw new Error(`All AI providers failed. ${providerErrors.join(' | ')}`);
+  }
+
+  try {
     
     let analysis;
     try {

@@ -23,7 +23,7 @@ serve(async (req) => {
     validateRequest(roastId);
 
     // Validate environment variables
-    const { supabaseUrl, supabaseKey, screenshotApiKey, openAIApiKey } = validateEnvironmentVars();
+    const { supabaseUrl, supabaseKey, screenshotApiKey, geminiApiKey, geminiApiKey2, openRouterApiKey } = validateEnvironmentVars();
     
     // Fetch the roast record from both tables
     console.log("Fetching roast details");
@@ -149,7 +149,7 @@ serve(async (req) => {
       const analysis = await generateWebsiteAnalysis(
         roast.url, 
         finalScreenshotUrl, 
-        openAIApiKey,
+        { geminiApiKey, geminiApiKey2, openRouterApiKey },
         scrapedContent
       );
       

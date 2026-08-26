@@ -82,12 +82,16 @@ export function validateEnvironmentVars(): {
   supabaseUrl: string, 
   supabaseKey: string, 
   screenshotApiKey: string,
-  openAIApiKey: string 
+  geminiApiKey?: string,
+  geminiApiKey2?: string,
+  openRouterApiKey?: string
 } {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const screenshotApiKey = Deno.env.get('SCREENSHOT_API_KEY')
-  const openAIApiKey = Deno.env.get('OPENAI_API_KEY')
+  const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
+  const geminiApiKey2 = Deno.env.get('GEMINI_API_KEY_2')
+  const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY')
 
   if (!supabaseUrl) {
     throw new Error('SUPABASE_URL environment variable not found');
@@ -101,11 +105,11 @@ export function validateEnvironmentVars(): {
     throw new Error('SCREENSHOT_API_KEY environment variable not found');
   }
 
-  if (!openAIApiKey) {
-    throw new Error('OPENAI_API_KEY environment variable not found');
+  if (!geminiApiKey && !openRouterApiKey) {
+    throw new Error('No AI provider key found. Set GEMINI_API_KEY or OPENROUTER_API_KEY.');
   }
   
-  return { supabaseUrl, supabaseKey, screenshotApiKey, openAIApiKey };
+  return { supabaseUrl, supabaseKey, screenshotApiKey, geminiApiKey, geminiApiKey2, openRouterApiKey };
 }
 
 // Validate request parameters
