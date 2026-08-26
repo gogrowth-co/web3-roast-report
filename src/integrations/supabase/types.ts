@@ -174,6 +174,7 @@ export type Database = {
           ai_analysis: Json | null
           completed_at: string | null
           created_at: string | null
+          error_message: string | null
           expert_analysis: Json | null
           id: string
           score: number | null
@@ -186,6 +187,7 @@ export type Database = {
           ai_analysis?: Json | null
           completed_at?: string | null
           created_at?: string | null
+          error_message?: string | null
           expert_analysis?: Json | null
           id?: string
           score?: number | null
@@ -198,6 +200,7 @@ export type Database = {
           ai_analysis?: Json | null
           completed_at?: string | null
           created_at?: string | null
+          error_message?: string | null
           expert_analysis?: Json | null
           id?: string
           score?: number | null

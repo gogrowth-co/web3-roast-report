@@ -15,9 +15,17 @@ async function fetchWithRetry(
   try {
     const response = await fetch(url, options);
     if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
+      // Capture the provider's error body so the real cause is not lost
+      let body = '';
+      try {
+        body = (await response.clone().text()).slice(0, 500);
+      } catch (_) {
+        body = '<unreadable body>';
+      }
+      throw new Error(`HTTP error! Status: ${response.status} - ${body}`);
     }
     return response;
+
   } catch (error) {
     if (retries <= 0) {
       throw error;
