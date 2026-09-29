@@ -74,15 +74,26 @@ async function sendFulfillmentAlert(details: {
   }
 }
 
+// Per https://developers.openai.com/ads/conversions-api: match identifiers
+// must be SHA-256, lowercase 64-char hex, of the UTF-8-normalized value.
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input.trim().toLowerCase());
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Fire-and-forget, same pattern as the fulfillment alert: a rejected or
 // unreachable Conversions API call must never fail webhook processing --
-// Stripe retries the whole webhook on any non-2xx.
+// Stripe retries the whole webhook on any non-2xx. Capped with an abort
+// timeout so a stalled endpoint can't delay granting Pro access or block
+// OrderComplete.tsx's short purchase-confirmation polling window.
 async function sendConversionEvent(params: {
   type: string;
-  amount: number; // dollars, not cents
+  amount: number; // integer, currency's minor unit (cents for USD), NOT decimal dollars
   currency: string;
   sourceUrl: string;
   eventId: string;
+  email?: string | null;
 }) {
   try {
     const capiKey = Deno.env.get('CHATGPT_ADS_CONVERSION_KEY');
@@ -90,6 +101,13 @@ async function sendConversionEvent(params: {
       console.error('Conversion event skipped: CHATGPT_ADS_CONVERSION_KEY not set');
       return;
     }
+    // No oppref (OpenAI's own click-attribution id) is captured on the
+    // frontend yet -- this relies on the user object below for probabilistic
+    // match-rate attribution in the meantime. Follow-up: capture oppref on
+    // ad landing and thread it through to the purchase record.
+    const user: Record<string, unknown> = {};
+    if (params.email) user.emails_sha256 = [await sha256Hex(params.email)];
+
     const res = await fetch(`https://bzr.openai.com/v1/events?pid=${CHATGPT_ADS_PIXEL_ID}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${capiKey}`, 'Content-Type': 'application/json' },
@@ -102,9 +120,11 @@ async function sendConversionEvent(params: {
           timestamp_ms: Date.now(),
           action_source: 'web',
           source_url: params.sourceUrl,
+          ...(Object.keys(user).length > 0 ? { user } : {}),
           data: { type: 'contents', amount: params.amount, currency: params.currency.toUpperCase() },
         }],
       }),
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) {
       console.error(`Conversion event rejected (non-fatal): HTTP ${res.status}`, await res.text());
@@ -192,10 +212,11 @@ serve(async (req) => {
       // misattribute the sale to an unrelated third-party domain).
       await sendConversionEvent({
         type: 'order_created',
-        amount: session.amount_total ? session.amount_total / 100 : 0,
+        amount: session.amount_total ?? 0, // Stripe's amount_total is already in cents
         currency: session.currency ?? 'usd',
         sourceUrl: `https://web3roast.com/order-complete?session_id=${sessionId}`,
         eventId: `${sessionId}:order_created`,
+        email: session.customer_email,
       });
 
       // Update the purchase record
