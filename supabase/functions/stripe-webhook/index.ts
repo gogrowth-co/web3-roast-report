@@ -187,11 +187,14 @@ serve(async (req) => {
       // fires at create-checkout time; this is the matching order_created for
       // an actually completed sale, same account pixel and event type Growth
       // Audit's own checkout campaign already optimizes toward.
+      // sourceUrl must be where the PURCHASE happened, not `roastUrl` (the
+      // customer's own submitted site being audited -- using that would
+      // misattribute the sale to an unrelated third-party domain).
       await sendConversionEvent({
         type: 'order_created',
         amount: session.amount_total ? session.amount_total / 100 : 0,
         currency: session.currency ?? 'usd',
-        sourceUrl: roastUrl ?? 'https://web3roast.com/',
+        sourceUrl: `https://web3roast.com/order-complete?session_id=${sessionId}`,
         eventId: `${sessionId}:order_created`,
       });
 
