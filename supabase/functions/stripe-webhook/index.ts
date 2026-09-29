@@ -5,6 +5,11 @@ import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { Resend } from "npm:resend@2.0.0";
 
 const FULFILLMENT_INBOX = "contact@web3roast.com";
+// contact@web3roast.com's access is uncertain right now (Gabriel, 2026-09-29)
+// -- cc'd directly so the alert isn't relying on an inbox that might not be
+// checked. Remove once gtm-roast-11 (setting up contact@web3roast.com
+// properly) is done and that inbox is confirmed reliable on its own.
+const FULFILLMENT_CC = "gmangabeira@gmail.com";
 
 /**
  * Fire-and-forget: a failed alert must never fail the webhook itself (Stripe
@@ -36,6 +41,7 @@ async function sendFulfillmentAlert(details: {
     const { error } = await resend.emails.send({
       from: "Web3ROAST <contact@email.web3roast.com>",
       to: [FULFILLMENT_INBOX],
+      cc: [FULFILLMENT_CC],
       subject: `New Pro Roast sale${details.roastUrl ? ` — ${details.roastUrl}` : ""}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
