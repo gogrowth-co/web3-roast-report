@@ -2,6 +2,72 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { Resend } from "npm:resend@2.0.0";
+
+const FULFILLMENT_INBOX = "contact@web3roast.com";
+// contact@web3roast.com's access is uncertain right now (Gabriel, 2026-09-29)
+// -- cc'd directly so the alert isn't relying on an inbox that might not be
+// checked. Remove once gtm-roast-11 (setting up contact@web3roast.com
+// properly) is done and that inbox is confirmed reliable on its own.
+const FULFILLMENT_CC = "gmangabeira@gmail.com";
+
+/**
+ * Fire-and-forget: a failed alert must never fail the webhook itself (Stripe
+ * retries on non-2xx, and purchase processing must not hinge on Resend being
+ * up or configured). The Resend client is constructed IN HERE, not at module
+ * scope — its constructor can throw on a missing/invalid key, and at module
+ * scope that would crash the whole function before `serve` ever runs, taking
+ * down real payment processing over an optional notification.
+ */
+async function sendFulfillmentAlert(details: {
+  buyerEmail: string | null;
+  amount: number | null;
+  currency: string | null;
+  sessionId: string;
+  roastId: string | null;
+  roastUrl: string | null;
+}) {
+  try {
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("Fulfillment alert skipped: RESEND_API_KEY not set");
+      return;
+    }
+    const resend = new Resend(resendApiKey);
+
+    // The SDK resolves with { data: null, error } on failure (bad key,
+    // unverified sender, rate limit) rather than throwing -- so a thrown
+    // exception alone won't catch every failure mode. Check both.
+    const { error } = await resend.emails.send({
+      from: "Web3ROAST <contact@email.web3roast.com>",
+      to: [FULFILLMENT_INBOX],
+      cc: [FULFILLMENT_CC],
+      subject: `New Pro Roast sale${details.roastUrl ? ` — ${details.roastUrl}` : ""}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #333;">A Pro Roast just sold 🔥</h1>
+          <p style="font-size: 16px; color: #555;">Video due within 48 hours.</p>
+          <ul style="font-size: 16px; color: #555;">
+            <li><strong>Buyer:</strong> ${details.buyerEmail ?? "unknown"}</li>
+            <li><strong>Amount:</strong> ${
+              details.amount != null && details.currency
+                ? `${(details.amount / 100).toFixed(2)} ${details.currency.toUpperCase()}`
+                : "unknown"
+            }</li>
+            <li><strong>Project URL:</strong> ${details.roastUrl ?? "unknown — roastId " + (details.roastId ?? "missing") + ", check the roasts table"}</li>
+            <li><strong>Stripe session:</strong> ${details.sessionId}</li>
+          </ul>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("Resend rejected the fulfillment alert (non-fatal):", error);
+    }
+  } catch (error) {
+    console.error("Failed to send fulfillment alert (non-fatal):", error);
+  }
+}
 
 serve(async (req) => {
   try {
@@ -46,6 +112,32 @@ serve(async (req) => {
       const session = event.data.object;
       const sessionId = session.id;
 
+      // Fulfillment alert fires FIRST, before any DB writes below, and is
+      // never gated on their success. Stripe's signature check above already
+      // proves the charge is real -- everything after this point is our own
+      // bookkeeping, and a bookkeeping failure is exactly the case where
+      // Gabriel most needs to hear that a sale happened, not the case where
+      // the alert should silently get skipped.
+      const roastId = (session.metadata as Record<string, string> | null)?.roastId ?? null;
+      let roastUrl: string | null = null;
+      if (roastId) {
+        const { data: roastRow } = await supabase
+          .from('roasts')
+          .select('url')
+          .eq('id', roastId)
+          .maybeSingle();
+        roastUrl = roastRow?.url ?? null;
+      }
+
+      await sendFulfillmentAlert({
+        buyerEmail: session.customer_email ?? null,
+        amount: session.amount_total ?? null,
+        currency: session.currency ?? null,
+        sessionId,
+        roastId,
+        roastUrl,
+      });
+
       // Update the purchase record
       const { data: purchaseData, error: purchaseError } = await supabase
         .from('purchases')
@@ -60,7 +152,7 @@ serve(async (req) => {
 
       if (purchaseData && purchaseData.length > 0) {
         const userId = purchaseData[0].user_id;
-        
+
         // Update the user's is_pro status
         const { error: userUpdateError } = await supabase.auth.admin.updateUserById(
           userId,

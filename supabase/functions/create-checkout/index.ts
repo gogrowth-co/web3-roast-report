@@ -61,6 +61,10 @@ serve(async (req) => {
       mode: 'payment',
       success_url: `${req.headers.get('origin')}/order-complete`,
       cancel_url: `${req.headers.get('origin')}/results/${roastId}`,
+      // Carried through to the webhook via the Stripe event itself, so the
+      // fulfillment alert can say which project needs the video without a
+      // schema change or an extra purchases<->roasts join.
+      metadata: { roastId },
     });
 
     // Save the checkout session to the purchases table
