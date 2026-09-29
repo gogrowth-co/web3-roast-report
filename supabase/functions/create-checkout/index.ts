@@ -8,6 +8,88 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Account has exactly one OpenAI Ads pixel (confirmed via the live
+// mangabeira.net GTM container) -- not a secret, it's already public in
+// every page that loads the oaiq snippet.
+const CHATGPT_ADS_PIXEL_ID = "5VyEFmoMWcYdYkCjg6DrYR";
+
+// x-forwarded-for can be a comma-separated proxy chain ("client, proxy1,
+// proxy2") -- take the client's own address (the first entry) and validate
+// it's plausibly an IP before sending it, rather than risk the whole raw
+// header string being rejected or silently dropped as a bad match signal.
+const IP_RE = /^(?:\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+:[0-9a-fA-F:]*$/;
+function firstValidIp(...candidates: (string | null)[]): string | null {
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const first = raw.split(',')[0].trim();
+    if (IP_RE.test(first)) return first;
+  }
+  return null;
+}
+
+// Per https://developers.openai.com/ads/conversions-api: match identifiers
+// must be SHA-256, lowercase 64-char hex, of the UTF-8-normalized value.
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input.trim().toLowerCase());
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Fire-and-forget, same pattern as the fulfillment alert: a rejected or
+// unreachable Conversions API call must never fail checkout creation. Capped
+// with an abort timeout -- without one, an await on a stalled endpoint would
+// block returning the Stripe checkout URL to the customer.
+async function sendConversionEvent(params: {
+  type: string;
+  amount: number; // integer, currency's minor unit (cents for USD), NOT decimal dollars
+  currency: string;
+  sourceUrl: string;
+  eventId: string;
+  email?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}) {
+  try {
+    const capiKey = Deno.env.get('CHATGPT_ADS_CONVERSION_KEY');
+    if (!capiKey) {
+      console.error('Conversion event skipped: CHATGPT_ADS_CONVERSION_KEY not set');
+      return;
+    }
+    // No oppref (OpenAI's own click-attribution id) is captured on the
+    // frontend yet -- these events rely on the user object below for
+    // probabilistic match-rate attribution in the meantime. Follow-up:
+    // capture oppref on ad landing and thread it through to checkout.
+    const user: Record<string, unknown> = {};
+    if (params.email) user.emails_sha256 = [await sha256Hex(params.email)];
+    if (params.ipAddress) user.ip_address = params.ipAddress;
+    if (params.userAgent) user.user_agent = params.userAgent;
+
+    const res = await fetch(`https://bzr.openai.com/v1/events?pid=${CHATGPT_ADS_PIXEL_ID}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${capiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        validate_only: false,
+        integration_source: 'web3-roast-server',
+        events: [{
+          id: params.eventId,
+          type: params.type,
+          timestamp_ms: Date.now(),
+          action_source: 'web',
+          source_url: params.sourceUrl,
+          ...(Object.keys(user).length > 0 ? { user } : {}),
+          data: { type: 'contents', amount: params.amount, currency: params.currency.toUpperCase() },
+        }],
+      }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) {
+      console.error(`Conversion event rejected (non-fatal): HTTP ${res.status}`, await res.text());
+    }
+  } catch (error) {
+    console.error('Failed to send conversion event (non-fatal):', error);
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -81,7 +163,10 @@ serve(async (req) => {
       // Carried through to the webhook via the Stripe event itself, so the
       // fulfillment alert can say which project needs the video without a
       // schema change or an extra purchases<->roasts join.
-      metadata: { roastId },
+      // origin lets the webhook build the correct order-complete URL for the
+      // conversion event's source_url -- without it, a purchase started on
+      // roast.mangabeira.net would get misreported as web3roast.com.
+      metadata: { roastId, origin: req.headers.get('origin') ?? '' },
     });
 
     // Save the checkout session to the purchases table
@@ -98,6 +183,23 @@ serve(async (req) => {
     if (insertError) {
       console.error('Error inserting purchase record:', insertError);
     }
+
+    // Real checkout-intent signal for the ChatGPT Ads campaigns pointing at
+    // roast.mangabeira.net -- until this existed, those campaigns had zero
+    // conversion data from Roast traffic (no OpenAI pixel was ever installed
+    // here). Matches the account's existing checkout_started event type, so
+    // it feeds straight into the conversion_event_setting_ids campaigns
+    // already reference -- no new event or campaign change needed.
+    await sendConversionEvent({
+      type: 'checkout_started',
+      amount: session.amount_total ?? 0, // Stripe's amount_total is already in cents
+      currency: session.currency ?? 'usd',
+      sourceUrl: `${req.headers.get('origin')}/results/${roastId}`,
+      eventId: `${session.id}:checkout_started`,
+      email: user.email,
+      ipAddress: firstValidIp(req.headers.get('cf-connecting-ip'), req.headers.get('x-forwarded-for')),
+      userAgent: req.headers.get('user-agent'),
+    });
 
     // Return the checkout session URL
     return new Response(

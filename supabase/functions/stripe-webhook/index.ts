@@ -4,6 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { Resend } from "npm:resend@2.0.0";
 
+// Account has exactly one OpenAI Ads pixel (confirmed via the live
+// mangabeira.net GTM container) -- not a secret, it's already public in
+// every page that loads the oaiq snippet.
+const CHATGPT_ADS_PIXEL_ID = "5VyEFmoMWcYdYkCjg6DrYR";
+
 const FULFILLMENT_INBOX = "contact@web3roast.com";
 // contact@web3roast.com's access is uncertain right now (Gabriel, 2026-09-29)
 // -- cc'd directly so the alert isn't relying on an inbox that might not be
@@ -69,6 +74,66 @@ async function sendFulfillmentAlert(details: {
   }
 }
 
+// Per https://developers.openai.com/ads/conversions-api: match identifiers
+// must be SHA-256, lowercase 64-char hex, of the UTF-8-normalized value.
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input.trim().toLowerCase());
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Fire-and-forget, same pattern as the fulfillment alert: a rejected or
+// unreachable Conversions API call must never fail webhook processing --
+// Stripe retries the whole webhook on any non-2xx. Capped with an abort
+// timeout so a stalled endpoint can't delay granting Pro access or block
+// OrderComplete.tsx's short purchase-confirmation polling window.
+async function sendConversionEvent(params: {
+  type: string;
+  amount: number; // integer, currency's minor unit (cents for USD), NOT decimal dollars
+  currency: string;
+  sourceUrl: string;
+  eventId: string;
+  email?: string | null;
+}) {
+  try {
+    const capiKey = Deno.env.get('CHATGPT_ADS_CONVERSION_KEY');
+    if (!capiKey) {
+      console.error('Conversion event skipped: CHATGPT_ADS_CONVERSION_KEY not set');
+      return;
+    }
+    // No oppref (OpenAI's own click-attribution id) is captured on the
+    // frontend yet -- this relies on the user object below for probabilistic
+    // match-rate attribution in the meantime. Follow-up: capture oppref on
+    // ad landing and thread it through to the purchase record.
+    const user: Record<string, unknown> = {};
+    if (params.email) user.emails_sha256 = [await sha256Hex(params.email)];
+
+    const res = await fetch(`https://bzr.openai.com/v1/events?pid=${CHATGPT_ADS_PIXEL_ID}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${capiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        validate_only: false,
+        integration_source: 'web3-roast-server',
+        events: [{
+          id: params.eventId,
+          type: params.type,
+          timestamp_ms: Date.now(),
+          action_source: 'web',
+          source_url: params.sourceUrl,
+          ...(Object.keys(user).length > 0 ? { user } : {}),
+          data: { type: 'contents', amount: params.amount, currency: params.currency.toUpperCase() },
+        }],
+      }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) {
+      console.error(`Conversion event rejected (non-fatal): HTTP ${res.status}`, await res.text());
+    }
+  } catch (error) {
+    console.error('Failed to send conversion event (non-fatal):', error);
+  }
+}
+
 serve(async (req) => {
   try {
     const stripeSignature = req.headers.get('stripe-signature');
@@ -118,7 +183,14 @@ serve(async (req) => {
       // bookkeeping, and a bookkeeping failure is exactly the case where
       // Gabriel most needs to hear that a sale happened, not the case where
       // the alert should silently get skipped.
-      const roastId = (session.metadata as Record<string, string> | null)?.roastId ?? null;
+      const metadata = session.metadata as Record<string, string> | null;
+      const roastId = metadata?.roastId ?? null;
+      // Set at checkout-creation time from the request's own origin -- a
+      // purchase started on roast.mangabeira.net must report that URL, not
+      // a hardcoded web3roast.com, or the conversion's source-domain data
+      // misattributes every subdomain-bridge sale. Old sessions predating
+      // this field fall back to the canonical domain.
+      const checkoutOrigin = metadata?.origin || 'https://web3roast.com';
       let roastUrl: string | null = null;
       if (roastId) {
         const { data: roastRow } = await supabase
@@ -136,6 +208,22 @@ serve(async (req) => {
         sessionId,
         roastId,
         roastUrl,
+      });
+
+      // Real purchase signal for the ChatGPT Ads campaigns -- checkout_started
+      // fires at create-checkout time; this is the matching order_created for
+      // an actually completed sale, same account pixel and event type Growth
+      // Audit's own checkout campaign already optimizes toward.
+      // sourceUrl must be where the PURCHASE happened, not `roastUrl` (the
+      // customer's own submitted site being audited -- using that would
+      // misattribute the sale to an unrelated third-party domain).
+      await sendConversionEvent({
+        type: 'order_created',
+        amount: session.amount_total ?? 0, // Stripe's amount_total is already in cents
+        currency: session.currency ?? 'usd',
+        sourceUrl: `${checkoutOrigin}/order-complete?session_id=${sessionId}`,
+        eventId: `${sessionId}:order_created`,
+        email: session.customer_email,
       });
 
       // Update the purchase record
