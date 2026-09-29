@@ -63,7 +63,13 @@ serve(async (req) => {
           throw new Error('Free roast limit reached for today. Please try again tomorrow, or sign up to continue.');
         }
       } else {
-        console.warn("Daily cap check failed, proceeding anyway");
+        // Fail CLOSED, not open. Unlike the per-roastId retry-throttle
+        // further down (which only limits repeats on a roast that already
+        // exists), this is the only thing standing between an anonymous
+        // visitor and unlimited NEW paid AI+screenshot calls. An RPC outage
+        // must not silently remove that limit.
+        console.error("Daily cap check failed, refusing to proceed:", await dailyCapResponse.text());
+        throw new Error('Unable to verify roast limit right now. Please try again in a moment.');
       }
 
       // Same-session, same-URL resubmission hits the table's own

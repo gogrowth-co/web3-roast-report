@@ -5,6 +5,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Matches the UUID check analyze-web3/utils.ts already applies to roastId
+// elsewhere in this codebase. Required here, strictly, before roastId is
+// interpolated into a PostgREST query string: an unvalidated value can
+// inject extra query params (e.g. a crafted `select=` that aliases a known
+// column to `session_id`), defeating the ownership check below entirely.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Anonymous visitors have no JWT the anonymous_roasts SELECT policy can
  * check against (claimed_by_user_id = auth.uid(), which is null for every
@@ -31,6 +38,20 @@ serve(async (req) => {
       );
     }
 
+    if (typeof roastId !== 'string' || !UUID_REGEX.test(roastId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid roastId format. Expected UUID.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof sessionId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid sessionId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !supabaseKey) {
@@ -38,7 +59,7 @@ serve(async (req) => {
     }
 
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/anonymous_roasts?id=eq.${roastId}&select=*`,
+      `${supabaseUrl}/rest/v1/anonymous_roasts?id=eq.${encodeURIComponent(roastId)}&select=*`,
       {
         headers: {
           'Authorization': `Bearer ${supabaseKey}`,
