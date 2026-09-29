@@ -43,3 +43,14 @@ export const trackUrlSubmission = (url: string) => {
     url: url.replace(/^https?:\/\//, '').split('/')[0] // Only track domain for privacy
   });
 };
+
+// Track a completed purchase. value/currency/transaction_id are GA4's
+// built-in ecommerce parameters -- no custom dimension to register, and
+// revenue rolls up into GA4's Monetization reports on its own.
+export const trackPurchase = (transactionId: string, value: number, currency = 'USD') => {
+  trackEvent('purchase', {
+    transaction_id: transactionId,
+    value,
+    currency,
+  });
+};

@@ -23,10 +23,23 @@ serve(async (req) => {
     
     // Parse request body
     const requestData = await req.json();
-    const { roastId, priceId } = requestData;
-    
+    const { roastId } = requestData;
+
     if (!roastId) {
       throw new Error('Missing roast ID');
+    }
+
+    // The price is never taken from the client. It used to accept a
+    // client-supplied priceId, falling back to a hardcoded price if absent --
+    // that fallback (price_1RJbftD41aNWIHmddbD7SvEo) turned out to be a real,
+    // active $149 price on the same product as the intended $49 one
+    // (price_1RLzE6D41aNWIHmdgGD6v8J2, verified directly against Stripe
+    // before this fix). A crafted request with no priceId would have charged
+    // $149 instead of $49. The server now reads the one price it will ever
+    // charge from its own secret, full stop.
+    const priceId = Deno.env.get('STRIPE_PRICE_ID');
+    if (!priceId) {
+      throw new Error('STRIPE_PRICE_ID is not configured');
     }
 
     // Initialize Stripe with the secret key from environment variables
@@ -54,12 +67,16 @@ serve(async (req) => {
       customer_email: user.email,
       line_items: [
         {
-          price: priceId || 'price_1RJbftD41aNWIHmddbD7SvEo', // Use provided priceId or default
+          price: priceId,
           quantity: 1,
         },
       ],
       mode: 'payment',
-      success_url: `${req.headers.get('origin')}/order-complete`,
+      // {CHECKOUT_SESSION_ID} is a literal Stripe template placeholder --
+      // Stripe substitutes the real session id before redirecting. Lets
+      // OrderComplete.tsx look up which purchase just completed and its
+      // real amount, for revenue tracking (gtm-roast-04).
+      success_url: `${req.headers.get('origin')}/order-complete?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get('origin')}/results/${roastId}`,
       // Carried through to the webhook via the Stripe event itself, so the
       // fulfillment alert can say which project needs the video without a
@@ -73,7 +90,7 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         session_id: session.id,
-        price_id: priceId || 'price_1RJbftD41aNWIHmddbD7SvEo',
+        price_id: priceId,
         status: 'pending',
         amount: session.amount_total ? session.amount_total / 100 : 0,
       });

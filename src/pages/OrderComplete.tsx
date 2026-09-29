@@ -2,13 +2,16 @@
 import React, { useEffect } from 'react';
 import { CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '@/hooks/useSession';
+import { supabase } from "@/integrations/supabase/client";
+import { trackPurchase } from '@/utils/analytics';
 import SEO from '@/components/SEO';
 
 const OrderComplete = () => {
   const { session } = useSession();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -16,6 +19,32 @@ const OrderComplete = () => {
       navigate('/auth');
     }
   }, [session, navigate]);
+
+  // Fire the GA4 purchase event exactly once, reading the real amount back
+  // from our own purchases row rather than trusting anything client-side --
+  // create-checkout writes that row from session.amount_total (Stripe's own
+  // figure) before ever redirecting here. Previously this page had no
+  // tracking at all. transaction_id gives GA4 its own dedup on refresh, so
+  // no extra guard is needed for that case.
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    if (!sessionId) return;
+
+    supabase
+      .from('purchases')
+      .select('amount')
+      .eq('session_id', sessionId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Failed to load purchase for tracking:', error);
+          return;
+        }
+        if (data?.amount != null) {
+          trackPurchase(sessionId, data.amount);
+        }
+      });
+  }, [searchParams]);
 
   if (!session) {
     return null;
