@@ -126,10 +126,7 @@ const Results = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: {
-          roastId: id,
-          priceId: 'price_1RLzE6D41aNWIHmdgGD6v8J2',
-        }
+        body: { roastId: id }
       });
 
       if (error) {

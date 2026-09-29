@@ -2,20 +2,85 @@
 import React, { useEffect } from 'react';
 import { CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '@/hooks/useSession';
+import { supabase } from "@/integrations/supabase/client";
+import { trackPurchase } from '@/utils/analytics';
 import SEO from '@/components/SEO';
 
 const OrderComplete = () => {
-  const { session } = useSession();
+  const { session, loading } = useSession();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated -- but only once useSession has
+  // actually finished checking. It starts every mount with session: null
+  // while it awaits supabase.auth.getSession(), so redirecting on that
+  // initial value alone would send a genuinely logged-in user (arriving
+  // straight from Stripe) to /auth before their real session ever loads,
+  // unmounting this page and, with it, the purchase-tracking poll below --
+  // silently dropping a real conversion. See the pre-push review that
+  // caught this on the tracking change.
   useEffect(() => {
-    if (!session) {
+    if (!loading && !session) {
       navigate('/auth');
     }
-  }, [session, navigate]);
+  }, [loading, session, navigate]);
+
+  // Fire the GA4 purchase event once the purchase is server-confirmed paid,
+  // reading the real amount back from our own purchases row rather than
+  // trusting anything client-side -- create-checkout writes that row from
+  // session.amount_total (Stripe's own figure) before ever redirecting here.
+  // Previously this page had no tracking at all.
+  //
+  // status alone isn't enough to fire on: create-checkout inserts the row
+  // with status 'pending' *before* payment, so a user who opens this URL for
+  // an abandoned or still-processing checkout would otherwise register as
+  // revenue. Only stripe-webhook flips it to 'complete', on
+  // checkout.session.completed -- and that webhook is asynchronous, so it
+  // may not have landed yet by the time this page loads. Poll briefly for
+  // 'complete' rather than checking once; give up silently after a few
+  // tries rather than firing on an unconfirmed row. transaction_id gives
+  // GA4 its own dedup, so re-running this on a refresh is harmless.
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    if (!sessionId) return;
+
+    let cancelled = false;
+    const maxAttempts = 5;
+    const delayMs = 2000;
+
+    const checkOnce = async (attempt: number) => {
+      const { data, error } = await supabase
+        .from('purchases')
+        .select('amount, status')
+        .eq('session_id', sessionId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error('Failed to load purchase for tracking:', error);
+        return;
+      }
+
+      if (data?.status === 'complete' && data.amount != null) {
+        trackPurchase(sessionId, data.amount);
+        return;
+      }
+
+      if (attempt < maxAttempts) {
+        setTimeout(() => checkOnce(attempt + 1), delayMs);
+      } else {
+        console.warn('Purchase not confirmed complete after polling; not tracking:', sessionId);
+      }
+    };
+
+    checkOnce(1);
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   if (!session) {
     return null;
