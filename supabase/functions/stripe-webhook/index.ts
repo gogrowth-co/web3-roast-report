@@ -183,7 +183,14 @@ serve(async (req) => {
       // bookkeeping, and a bookkeeping failure is exactly the case where
       // Gabriel most needs to hear that a sale happened, not the case where
       // the alert should silently get skipped.
-      const roastId = (session.metadata as Record<string, string> | null)?.roastId ?? null;
+      const metadata = session.metadata as Record<string, string> | null;
+      const roastId = metadata?.roastId ?? null;
+      // Set at checkout-creation time from the request's own origin -- a
+      // purchase started on roast.mangabeira.net must report that URL, not
+      // a hardcoded web3roast.com, or the conversion's source-domain data
+      // misattributes every subdomain-bridge sale. Old sessions predating
+      // this field fall back to the canonical domain.
+      const checkoutOrigin = metadata?.origin || 'https://web3roast.com';
       let roastUrl: string | null = null;
       if (roastId) {
         const { data: roastRow } = await supabase
@@ -214,7 +221,7 @@ serve(async (req) => {
         type: 'order_created',
         amount: session.amount_total ?? 0, // Stripe's amount_total is already in cents
         currency: session.currency ?? 'usd',
-        sourceUrl: `https://web3roast.com/order-complete?session_id=${sessionId}`,
+        sourceUrl: `${checkoutOrigin}/order-complete?session_id=${sessionId}`,
         eventId: `${sessionId}:order_created`,
         email: session.customer_email,
       });

@@ -13,6 +13,20 @@ const corsHeaders = {
 // every page that loads the oaiq snippet.
 const CHATGPT_ADS_PIXEL_ID = "5VyEFmoMWcYdYkCjg6DrYR";
 
+// x-forwarded-for can be a comma-separated proxy chain ("client, proxy1,
+// proxy2") -- take the client's own address (the first entry) and validate
+// it's plausibly an IP before sending it, rather than risk the whole raw
+// header string being rejected or silently dropped as a bad match signal.
+const IP_RE = /^(?:\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+:[0-9a-fA-F:]*$/;
+function firstValidIp(...candidates: (string | null)[]): string | null {
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const first = raw.split(',')[0].trim();
+    if (IP_RE.test(first)) return first;
+  }
+  return null;
+}
+
 // Per https://developers.openai.com/ads/conversions-api: match identifiers
 // must be SHA-256, lowercase 64-char hex, of the UTF-8-normalized value.
 async function sha256Hex(input: string): Promise<string> {
@@ -149,7 +163,10 @@ serve(async (req) => {
       // Carried through to the webhook via the Stripe event itself, so the
       // fulfillment alert can say which project needs the video without a
       // schema change or an extra purchases<->roasts join.
-      metadata: { roastId },
+      // origin lets the webhook build the correct order-complete URL for the
+      // conversion event's source_url -- without it, a purchase started on
+      // roast.mangabeira.net would get misreported as web3roast.com.
+      metadata: { roastId, origin: req.headers.get('origin') ?? '' },
     });
 
     // Save the checkout session to the purchases table
@@ -180,7 +197,7 @@ serve(async (req) => {
       sourceUrl: `${req.headers.get('origin')}/results/${roastId}`,
       eventId: `${session.id}:checkout_started`,
       email: user.email,
-      ipAddress: req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for'),
+      ipAddress: firstValidIp(req.headers.get('cf-connecting-ip'), req.headers.get('x-forwarded-for')),
       userAgent: req.headers.get('user-agent'),
     });
 
