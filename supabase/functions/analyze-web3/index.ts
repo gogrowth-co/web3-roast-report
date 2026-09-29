@@ -15,16 +15,141 @@ serve(async (req) => {
   try {
     // Extract request data
     const requestData = await req.json();
-    const { roastId, sessionId } = requestData;
-    
+    let roastId = requestData.roastId;
+    const { sessionId, url: requestedUrl } = requestData;
+
+    // Validate environment variables (needed either way)
+    const { supabaseUrl, supabaseKey, screenshotApiKey, geminiApiKey, geminiApiKey2, openRouterApiKey } = validateEnvironmentVars();
+
+    // No roastId means the caller is a logged-out visitor asking for a fresh
+    // free roast. anonymous_roasts INSERT is locked to service_role only
+    // (see migration 20260421213859) -- the browser can't create this row
+    // itself, so this function does it, using the same elevated key it
+    // already holds to read/update roasts below. This is the whole fix for
+    // "free tier isn't actually free": before this, the client had no way
+    // to create an anonymous roast at all and UrlForm.tsx fell back to
+    // forcing a login first.
+    if (!roastId) {
+      if (!requestedUrl || !sessionId) {
+        throw new Error('Missing url or sessionId for a new anonymous roast');
+      }
+
+      // Same-session, same-URL resubmission hits the table's own
+      // unique_session_url constraint -- look this up FIRST, before charging
+      // the daily cap below. A cache hit (pending/processing/completed) is
+      // free to return: no new analysis, no new cost, so it must not consume
+      // a quota slot -- otherwise three refreshes of an already-completed
+      // result would lock a visitor out of ever seeing it again. Only a
+      // brand-new row or a 'failed' row being retried triggers real paid
+      // work and needs to go through the cap.
+      const existingResponse = await fetch(
+        `${supabaseUrl}/rest/v1/anonymous_roasts?session_id=eq.${encodeURIComponent(sessionId)}&url=eq.${encodeURIComponent(requestedUrl)}&select=id,status`,
+        {
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'apikey': supabaseKey,
+          },
+        }
+      );
+      const existingRows = existingResponse.ok ? await existingResponse.json() : [];
+      const existingRow = existingRows[0];
+      const needsNewPaidWork = !existingRow || existingRow.status === 'failed';
+
+      if (needsNewPaidWork) {
+        // Daily cap per IP (not just sessionId -- that's a client-controlled
+        // localStorage value, trivially reset). Each anonymous roast is a
+        // real scrape + screenshot + AI call, so this is a cost guard, not a
+        // UX nicety. Separate rate_limits key from the per-roastId
+        // retry-throttle used further down, same check_rate_limit RPC, same
+        // rate_limits table.
+        const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+        const dailyCapKey = `daily-free-roast:${clientIP}`;
+        console.log("Checking daily free-roast cap for key:", dailyCapKey);
+        const dailyCapResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/check_rate_limit`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'apikey': supabaseKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            limit_key: dailyCapKey,
+            max_requests: 3,
+            window_minutes: 1440,
+          }),
+        });
+
+        if (dailyCapResponse.ok) {
+          const isAllowed = await dailyCapResponse.json();
+          if (!isAllowed) {
+            console.error("Daily free-roast cap exceeded for key:", dailyCapKey);
+            throw new Error('Free roast limit reached for today. Please try again tomorrow, or sign up to continue.');
+          }
+        } else {
+          // Fail CLOSED, not open. This is the only thing standing between
+          // an anonymous visitor and unlimited NEW paid AI+screenshot calls
+          // (the per-roastId throttle further down only limits repeats on a
+          // roast that already exists). An RPC outage must not silently
+          // remove that limit.
+          console.error("Daily cap check failed, refusing to proceed:", await dailyCapResponse.text());
+          throw new Error('Unable to verify roast limit right now. Please try again in a moment.');
+        }
+      }
+
+      if (existingRow) {
+        roastId = existingRow.id;
+        if (existingRow.status === 'failed') {
+          console.log("Resetting failed anonymous roast for retry:", roastId);
+          await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'pending', { error_message: null }, true);
+        } else {
+          console.log("Reusing existing anonymous roast for this session+url:", roastId);
+        }
+      } else {
+        const createResponse = await fetch(`${supabaseUrl}/rest/v1/anonymous_roasts`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'apikey': supabaseKey,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            url: requestedUrl,
+            status: 'pending',
+          }),
+        });
+
+        if (!createResponse.ok) {
+          const errorText = await createResponse.text();
+          console.error("Failed to create anonymous roast:", errorText);
+          throw new Error('Failed to start your free roast. Please try again.');
+        }
+
+        const [createdRow] = await createResponse.json();
+        roastId = createdRow.id;
+        console.log("Created new anonymous roast:", roastId);
+      }
+
+      // Return here, fast, without running the pipeline below. The client
+      // (UrlForm.tsx) is waiting on this call synchronously to get a
+      // roastId and navigate to /results/:id -- it must not block on the
+      // 30-60s scrape+screenshot+AI pipeline. Results.tsx's useRoastStatus
+      // hook independently calls this same function again, WITH the
+      // roastId this time, to actually kick off analysis, and polls the
+      // row for status the same way the existing logged-in flow already
+      // does. Mirrors UrlForm's existing logged-in path exactly: create
+      // the row fast, navigate, let the results page trigger the real work.
+      return new Response(JSON.stringify({ success: true, roastId }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     console.log("Starting analysis for roastId:", roastId);
-    
+
     // Validate request parameters
     validateRequest(roastId);
 
-    // Validate environment variables
-    const { supabaseUrl, supabaseKey, screenshotApiKey, geminiApiKey, geminiApiKey2, openRouterApiKey } = validateEnvironmentVars();
-    
     // Fetch the roast record from both tables
     console.log("Fetching roast details");
     let roastData;

@@ -96,26 +96,38 @@ export const useRoastStatus = (roastId: string) => {
         return roastData;
       }
       
-      // If not found, try anonymous_roasts table
-      console.log("Roast not in roasts table, checking anonymous_roasts");
-      const { data: anonymousData, error: anonymousError } = await supabase
-        .from('anonymous_roasts')
-        .select('*')
-        .eq('id', roastId)
-        .maybeSingle();
-      
-      if (anonymousData) {
-        console.log("Found roast in anonymous_roasts table:", anonymousData);
-        setIsAnonymous(true);
-        return anonymousData;
+      // Not in roasts -- try an anonymous roast next. This CANNOT be a
+      // direct table query: the anonymous_roasts SELECT policy only allows
+      // claimed_by_user_id = auth.uid(), which is null for every
+      // unauthenticated request (the anon key is shared across all
+      // visitors, so RLS has no way to tell them apart). get-anonymous-roast
+      // runs server-side with the service-role key and checks session
+      // ownership itself instead.
+      console.log("Roast not in roasts table, checking anonymous_roasts via get-anonymous-roast");
+      const sessionId = localStorage.getItem('roast_session_id');
+      if (sessionId) {
+        const { data: anonymousResult, error: anonymousError } = await supabase.functions.invoke(
+          'get-anonymous-roast',
+          { body: { roastId, sessionId } }
+        );
+
+        if (anonymousResult?.roast) {
+          console.log("Found roast via get-anonymous-roast:", anonymousResult.roast);
+          setIsAnonymous(true);
+          return anonymousResult.roast;
+        }
+
+        if (anonymousError) {
+          console.error("Error fetching anonymous roast:", anonymousError);
+        }
       }
-      
+
       // If not found in either table
-      if (roastError || anonymousError) {
-        console.error("Error fetching roast:", roastError || anonymousError);
-        throw roastError || anonymousError;
+      if (roastError) {
+        console.error("Error fetching roast:", roastError);
+        throw roastError;
       }
-      
+
       throw new Error("Roast not found");
     },
     refetchInterval: 3000, // Poll every 3 seconds for faster updates
