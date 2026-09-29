@@ -80,6 +80,14 @@ port = 54321
 # Disable JWT verification to support anonymous users, but implement rate limiting
 verify_jwt = false
 
+[functions.get-anonymous-roast]
+# Anonymous visitors have no JWT at all. Session ownership is checked inside
+# the function itself (session_id must match the row) since the public
+# anon key is shared across every visitor and RLS can't distinguish them --
+# see the anonymous_roasts SELECT policy, which intentionally only allows
+# claimed_by_user_id = auth.uid() and nothing else.
+verify_jwt = false
+
 [functions.claim-roast]
 # Verify JWT - this function requires authentication
 verify_jwt = true

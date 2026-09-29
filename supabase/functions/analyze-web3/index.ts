@@ -69,9 +69,12 @@ serve(async (req) => {
       // Same-session, same-URL resubmission hits the table's own
       // unique_session_url constraint -- reuse that existing row instead of
       // erroring, so a page refresh or double-click doesn't fail or burn a
-      // second analysis.
+      // second analysis. A row stuck on 'failed' gets reset to 'pending' so
+      // resubmitting after a transient failure actually retries instead of
+      // permanently returning the same dead result (the status check further
+      // down only accepts 'pending', 'processing', or 'completed').
       const existingResponse = await fetch(
-        `${supabaseUrl}/rest/v1/anonymous_roasts?session_id=eq.${encodeURIComponent(sessionId)}&url=eq.${encodeURIComponent(requestedUrl)}&select=id`,
+        `${supabaseUrl}/rest/v1/anonymous_roasts?session_id=eq.${encodeURIComponent(sessionId)}&url=eq.${encodeURIComponent(requestedUrl)}&select=id,status`,
         {
           headers: {
             'Authorization': `Bearer ${supabaseKey}`,
@@ -83,7 +86,12 @@ serve(async (req) => {
 
       if (existingRows.length > 0) {
         roastId = existingRows[0].id;
-        console.log("Reusing existing anonymous roast for this session+url:", roastId);
+        if (existingRows[0].status === 'failed') {
+          console.log("Resetting failed anonymous roast for retry:", roastId);
+          await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'pending', { error_message: null }, true);
+        } else {
+          console.log("Reusing existing anonymous roast for this session+url:", roastId);
+        }
       } else {
         const createResponse = await fetch(`${supabaseUrl}/rest/v1/anonymous_roasts`, {
           method: 'POST',
