@@ -216,7 +216,7 @@ const Results = () => {
         title={pageTitle}
         description={seoDescription}
       />
-      <ResultsHeader />
+      <ResultsHeader isAnonymous={isAnonymous} />
 
       <div className="max-w-7xl mx-auto px-4 py-8" id="report-root">
         <div className="mb-6">
