@@ -9,16 +9,23 @@ import { trackPurchase } from '@/utils/analytics';
 import SEO from '@/components/SEO';
 
 const OrderComplete = () => {
-  const { session } = useSession();
+  const { session, loading } = useSession();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated -- but only once useSession has
+  // actually finished checking. It starts every mount with session: null
+  // while it awaits supabase.auth.getSession(), so redirecting on that
+  // initial value alone would send a genuinely logged-in user (arriving
+  // straight from Stripe) to /auth before their real session ever loads,
+  // unmounting this page and, with it, the purchase-tracking poll below --
+  // silently dropping a real conversion. See the pre-push review that
+  // caught this on the tracking change.
   useEffect(() => {
-    if (!session) {
+    if (!loading && !session) {
       navigate('/auth');
     }
-  }, [session, navigate]);
+  }, [loading, session, navigate]);
 
   // Fire the GA4 purchase event once the purchase is server-confirmed paid,
   // reading the real amount back from our own purchases row rather than
