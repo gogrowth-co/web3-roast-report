@@ -76,11 +76,21 @@ const UrlForm = () => {
         toast.success("Analysis started!");
         navigate(`/results/${data.id}`);
       } else {
-        // Not logged in - save URL and redirect to auth
-        localStorage.setItem('pending_roast_url', trimmedUrl);
-        toast("Please sign in to start your roast 🔥");
-        navigate('/auth');
-        return;
+        // Not logged in - create the anonymous roast server-side, since
+        // anonymous_roasts INSERT is locked to service_role (the browser's
+        // anon key can't write it directly). analyze-web3 creates the row
+        // and returns fast without running the analysis pipeline itself --
+        // Results.tsx's useRoastStatus hook triggers the actual analysis
+        // once we land there, same as the logged-in path below.
+        const { data, error } = await supabase.functions.invoke('analyze-web3', {
+          body: { url: trimmedUrl, sessionId },
+        });
+
+        if (error) throw error;
+        if (!data?.roastId) throw new Error("Didn't get a roast ID back. Please try again.");
+
+        toast.success("Analysis started!");
+        navigate(`/results/${data.roastId}`);
       }
       
     } catch (error: any) {
