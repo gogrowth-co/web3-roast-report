@@ -8,6 +8,50 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Account has exactly one OpenAI Ads pixel (confirmed via the live
+// mangabeira.net GTM container) -- not a secret, it's already public in
+// every page that loads the oaiq snippet.
+const CHATGPT_ADS_PIXEL_ID = "5VyEFmoMWcYdYkCjg6DrYR";
+
+// Fire-and-forget, same pattern as the fulfillment alert: a rejected or
+// unreachable Conversions API call must never fail checkout creation.
+async function sendConversionEvent(params: {
+  type: string;
+  amount: number; // dollars, not cents
+  currency: string;
+  sourceUrl: string;
+  eventId: string;
+}) {
+  try {
+    const capiKey = Deno.env.get('CHATGPT_ADS_CONVERSION_KEY');
+    if (!capiKey) {
+      console.error('Conversion event skipped: CHATGPT_ADS_CONVERSION_KEY not set');
+      return;
+    }
+    const res = await fetch(`https://bzr.openai.com/v1/events?pid=${CHATGPT_ADS_PIXEL_ID}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${capiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        validate_only: false,
+        integration_source: 'web3-roast-server',
+        events: [{
+          id: params.eventId,
+          type: params.type,
+          timestamp_ms: Date.now(),
+          action_source: 'web',
+          source_url: params.sourceUrl,
+          data: { type: 'contents', amount: params.amount, currency: params.currency.toUpperCase() },
+        }],
+      }),
+    });
+    if (!res.ok) {
+      console.error(`Conversion event rejected (non-fatal): HTTP ${res.status}`, await res.text());
+    }
+  } catch (error) {
+    console.error('Failed to send conversion event (non-fatal):', error);
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -98,6 +142,20 @@ serve(async (req) => {
     if (insertError) {
       console.error('Error inserting purchase record:', insertError);
     }
+
+    // Real checkout-intent signal for the ChatGPT Ads campaigns pointing at
+    // roast.mangabeira.net -- until this existed, those campaigns had zero
+    // conversion data from Roast traffic (no OpenAI pixel was ever installed
+    // here). Matches the account's existing checkout_started event type, so
+    // it feeds straight into the conversion_event_setting_ids campaigns
+    // already reference -- no new event or campaign change needed.
+    await sendConversionEvent({
+      type: 'checkout_started',
+      amount: session.amount_total ? session.amount_total / 100 : 0,
+      currency: session.currency ?? 'usd',
+      sourceUrl: `${req.headers.get('origin')}/results/${roastId}`,
+      eventId: `${session.id}:checkout_started`,
+    });
 
     // Return the checkout session URL
     return new Response(

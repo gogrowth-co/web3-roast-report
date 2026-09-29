@@ -4,6 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { Resend } from "npm:resend@2.0.0";
 
+// Account has exactly one OpenAI Ads pixel (confirmed via the live
+// mangabeira.net GTM container) -- not a secret, it's already public in
+// every page that loads the oaiq snippet.
+const CHATGPT_ADS_PIXEL_ID = "5VyEFmoMWcYdYkCjg6DrYR";
+
 const FULFILLMENT_INBOX = "contact@web3roast.com";
 // contact@web3roast.com's access is uncertain right now (Gabriel, 2026-09-29)
 // -- cc'd directly so the alert isn't relying on an inbox that might not be
@@ -66,6 +71,46 @@ async function sendFulfillmentAlert(details: {
     }
   } catch (error) {
     console.error("Failed to send fulfillment alert (non-fatal):", error);
+  }
+}
+
+// Fire-and-forget, same pattern as the fulfillment alert: a rejected or
+// unreachable Conversions API call must never fail webhook processing --
+// Stripe retries the whole webhook on any non-2xx.
+async function sendConversionEvent(params: {
+  type: string;
+  amount: number; // dollars, not cents
+  currency: string;
+  sourceUrl: string;
+  eventId: string;
+}) {
+  try {
+    const capiKey = Deno.env.get('CHATGPT_ADS_CONVERSION_KEY');
+    if (!capiKey) {
+      console.error('Conversion event skipped: CHATGPT_ADS_CONVERSION_KEY not set');
+      return;
+    }
+    const res = await fetch(`https://bzr.openai.com/v1/events?pid=${CHATGPT_ADS_PIXEL_ID}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${capiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        validate_only: false,
+        integration_source: 'web3-roast-server',
+        events: [{
+          id: params.eventId,
+          type: params.type,
+          timestamp_ms: Date.now(),
+          action_source: 'web',
+          source_url: params.sourceUrl,
+          data: { type: 'contents', amount: params.amount, currency: params.currency.toUpperCase() },
+        }],
+      }),
+    });
+    if (!res.ok) {
+      console.error(`Conversion event rejected (non-fatal): HTTP ${res.status}`, await res.text());
+    }
+  } catch (error) {
+    console.error('Failed to send conversion event (non-fatal):', error);
   }
 }
 
@@ -136,6 +181,18 @@ serve(async (req) => {
         sessionId,
         roastId,
         roastUrl,
+      });
+
+      // Real purchase signal for the ChatGPT Ads campaigns -- checkout_started
+      // fires at create-checkout time; this is the matching order_created for
+      // an actually completed sale, same account pixel and event type Growth
+      // Audit's own checkout campaign already optimizes toward.
+      await sendConversionEvent({
+        type: 'order_created',
+        amount: session.amount_total ? session.amount_total / 100 : 0,
+        currency: session.currency ?? 'usd',
+        sourceUrl: roastUrl ?? 'https://web3roast.com/',
+        eventId: `${sessionId}:order_created`,
       });
 
       // Update the purchase record
