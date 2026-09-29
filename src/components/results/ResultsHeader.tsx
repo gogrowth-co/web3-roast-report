@@ -7,7 +7,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadElementAsPdf } from "@/utils/pdfUtils";
 
-const ResultsHeader = () => {
+interface ResultsHeaderProps {
+  isAnonymous?: boolean;
+}
+
+const ResultsHeader = ({ isAnonymous = false }: ResultsHeaderProps) => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [isSharing, setIsSharing] = useState(false);
@@ -16,6 +20,18 @@ const ResultsHeader = () => {
   const handleShare = async () => {
     if (!id) {
       toast.error("Cannot share: Invalid roast ID");
+      return;
+    }
+
+    // Share links only exist for claimed roasts (shared_roasts is scoped to
+    // the `roasts` table). An anonymous roast lives in `anonymous_roasts`
+    // and create-share will always 404 on it -- send these users to sign up
+    // instead of surfacing a confusing failure.
+    if (isAnonymous) {
+      toast.info("Sign up to share your results", {
+        description: "Create a free account to get a shareable link"
+      });
+      navigate('/auth', { state: { returnTo: `/results/${id}`, mode: 'signup' } });
       return;
     }
 

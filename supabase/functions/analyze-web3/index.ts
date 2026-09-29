@@ -257,18 +257,20 @@ serve(async (req) => {
     await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'processing', {}, isAnonymous);
 
     try {
-      // Scrape website content for text analysis
-      console.log("Scraping website content");
-      const scrapedContent = await scrapeWebsiteContent(roast.url);
-      
-      // Capture and store screenshot
-      const finalScreenshotUrl = await captureAndStoreScreenshot(
-        roastId, 
-        roast.url, 
-        supabaseUrl, 
-        supabaseKey, 
-        screenshotApiKey
-      );
+      // Scrape and screenshot don't depend on each other -- run them
+      // concurrently instead of back-to-back to cut wall time off the
+      // 30-60s pipeline by min(scrape, screenshot).
+      console.log("Scraping website content and capturing screenshot concurrently");
+      const [scrapedContent, finalScreenshotUrl] = await Promise.all([
+        scrapeWebsiteContent(roast.url),
+        captureAndStoreScreenshot(
+          roastId,
+          roast.url,
+          supabaseUrl,
+          supabaseKey,
+          screenshotApiKey
+        ),
+      ]);
 
       // Generate analysis with OpenAI using both screenshot and scraped content
       const analysis = await generateWebsiteAnalysis(
