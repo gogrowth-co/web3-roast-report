@@ -20,30 +20,59 @@ const OrderComplete = () => {
     }
   }, [session, navigate]);
 
-  // Fire the GA4 purchase event exactly once, reading the real amount back
-  // from our own purchases row rather than trusting anything client-side --
-  // create-checkout writes that row from session.amount_total (Stripe's own
-  // figure) before ever redirecting here. Previously this page had no
-  // tracking at all. transaction_id gives GA4 its own dedup on refresh, so
-  // no extra guard is needed for that case.
+  // Fire the GA4 purchase event once the purchase is server-confirmed paid,
+  // reading the real amount back from our own purchases row rather than
+  // trusting anything client-side -- create-checkout writes that row from
+  // session.amount_total (Stripe's own figure) before ever redirecting here.
+  // Previously this page had no tracking at all.
+  //
+  // status alone isn't enough to fire on: create-checkout inserts the row
+  // with status 'pending' *before* payment, so a user who opens this URL for
+  // an abandoned or still-processing checkout would otherwise register as
+  // revenue. Only stripe-webhook flips it to 'complete', on
+  // checkout.session.completed -- and that webhook is asynchronous, so it
+  // may not have landed yet by the time this page loads. Poll briefly for
+  // 'complete' rather than checking once; give up silently after a few
+  // tries rather than firing on an unconfirmed row. transaction_id gives
+  // GA4 its own dedup, so re-running this on a refresh is harmless.
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
     if (!sessionId) return;
 
-    supabase
-      .from('purchases')
-      .select('amount')
-      .eq('session_id', sessionId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('Failed to load purchase for tracking:', error);
-          return;
-        }
-        if (data?.amount != null) {
-          trackPurchase(sessionId, data.amount);
-        }
-      });
+    let cancelled = false;
+    const maxAttempts = 5;
+    const delayMs = 2000;
+
+    const checkOnce = async (attempt: number) => {
+      const { data, error } = await supabase
+        .from('purchases')
+        .select('amount, status')
+        .eq('session_id', sessionId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error('Failed to load purchase for tracking:', error);
+        return;
+      }
+
+      if (data?.status === 'complete' && data.amount != null) {
+        trackPurchase(sessionId, data.amount);
+        return;
+      }
+
+      if (attempt < maxAttempts) {
+        setTimeout(() => checkOnce(attempt + 1), delayMs);
+      } else {
+        console.warn('Purchase not confirmed complete after polling; not tracking:', sessionId);
+      }
+    };
+
+    checkOnce(1);
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   if (!session) {
