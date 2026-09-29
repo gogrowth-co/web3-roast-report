@@ -86,7 +86,23 @@ const UrlForm = () => {
           body: { url: trimmedUrl, sessionId },
         });
 
-        if (error) throw error;
+        if (error) {
+          // On a non-2xx response the SDK throws a generic
+          // "Edge Function returned a non-2xx status code" and buries the
+          // actual message (e.g. the daily-cap explanation) in
+          // error.context, a Response we have to read ourselves.
+          const context = (error as { context?: Response }).context;
+          let serverMessage: string | undefined;
+          if (context && typeof context.json === 'function') {
+            try {
+              const body = await context.json();
+              serverMessage = body?.error;
+            } catch {
+              // context wasn't JSON -- fall through to the generic message
+            }
+          }
+          throw new Error(serverMessage || error.message);
+        }
         if (!data?.roastId) throw new Error("Didn't get a roast ID back. Please try again.");
 
         toast.success("Analysis started!");

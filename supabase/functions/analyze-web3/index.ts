@@ -34,51 +34,14 @@ serve(async (req) => {
         throw new Error('Missing url or sessionId for a new anonymous roast');
       }
 
-      // Daily cap per IP (not just sessionId -- that's a client-controlled
-      // localStorage value, trivially reset). Each anonymous roast is a real
-      // scrape + screenshot + AI call, so this is a cost guard, not a UX
-      // nicety. Separate rate_limits key from the per-roastId retry-throttle
-      // used further down, same check_rate_limit RPC, same rate_limits table.
-      const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
-      const dailyCapKey = `daily-free-roast:${clientIP}`;
-      console.log("Checking daily free-roast cap for key:", dailyCapKey);
-      const dailyCapResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/check_rate_limit`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          limit_key: dailyCapKey,
-          max_requests: 3,
-          window_minutes: 1440,
-        }),
-      });
-
-      if (dailyCapResponse.ok) {
-        const isAllowed = await dailyCapResponse.json();
-        if (!isAllowed) {
-          console.error("Daily free-roast cap exceeded for key:", dailyCapKey);
-          throw new Error('Free roast limit reached for today. Please try again tomorrow, or sign up to continue.');
-        }
-      } else {
-        // Fail CLOSED, not open. Unlike the per-roastId retry-throttle
-        // further down (which only limits repeats on a roast that already
-        // exists), this is the only thing standing between an anonymous
-        // visitor and unlimited NEW paid AI+screenshot calls. An RPC outage
-        // must not silently remove that limit.
-        console.error("Daily cap check failed, refusing to proceed:", await dailyCapResponse.text());
-        throw new Error('Unable to verify roast limit right now. Please try again in a moment.');
-      }
-
       // Same-session, same-URL resubmission hits the table's own
-      // unique_session_url constraint -- reuse that existing row instead of
-      // erroring, so a page refresh or double-click doesn't fail or burn a
-      // second analysis. A row stuck on 'failed' gets reset to 'pending' so
-      // resubmitting after a transient failure actually retries instead of
-      // permanently returning the same dead result (the status check further
-      // down only accepts 'pending', 'processing', or 'completed').
+      // unique_session_url constraint -- look this up FIRST, before charging
+      // the daily cap below. A cache hit (pending/processing/completed) is
+      // free to return: no new analysis, no new cost, so it must not consume
+      // a quota slot -- otherwise three refreshes of an already-completed
+      // result would lock a visitor out of ever seeing it again. Only a
+      // brand-new row or a 'failed' row being retried triggers real paid
+      // work and needs to go through the cap.
       const existingResponse = await fetch(
         `${supabaseUrl}/rest/v1/anonymous_roasts?session_id=eq.${encodeURIComponent(sessionId)}&url=eq.${encodeURIComponent(requestedUrl)}&select=id,status`,
         {
@@ -89,10 +52,53 @@ serve(async (req) => {
         }
       );
       const existingRows = existingResponse.ok ? await existingResponse.json() : [];
+      const existingRow = existingRows[0];
+      const needsNewPaidWork = !existingRow || existingRow.status === 'failed';
 
-      if (existingRows.length > 0) {
-        roastId = existingRows[0].id;
-        if (existingRows[0].status === 'failed') {
+      if (needsNewPaidWork) {
+        // Daily cap per IP (not just sessionId -- that's a client-controlled
+        // localStorage value, trivially reset). Each anonymous roast is a
+        // real scrape + screenshot + AI call, so this is a cost guard, not a
+        // UX nicety. Separate rate_limits key from the per-roastId
+        // retry-throttle used further down, same check_rate_limit RPC, same
+        // rate_limits table.
+        const clientIP = req.headers.get('x-forwarded-for') || 'unknown';
+        const dailyCapKey = `daily-free-roast:${clientIP}`;
+        console.log("Checking daily free-roast cap for key:", dailyCapKey);
+        const dailyCapResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/check_rate_limit`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'apikey': supabaseKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            limit_key: dailyCapKey,
+            max_requests: 3,
+            window_minutes: 1440,
+          }),
+        });
+
+        if (dailyCapResponse.ok) {
+          const isAllowed = await dailyCapResponse.json();
+          if (!isAllowed) {
+            console.error("Daily free-roast cap exceeded for key:", dailyCapKey);
+            throw new Error('Free roast limit reached for today. Please try again tomorrow, or sign up to continue.');
+          }
+        } else {
+          // Fail CLOSED, not open. This is the only thing standing between
+          // an anonymous visitor and unlimited NEW paid AI+screenshot calls
+          // (the per-roastId throttle further down only limits repeats on a
+          // roast that already exists). An RPC outage must not silently
+          // remove that limit.
+          console.error("Daily cap check failed, refusing to proceed:", await dailyCapResponse.text());
+          throw new Error('Unable to verify roast limit right now. Please try again in a moment.');
+        }
+      }
+
+      if (existingRow) {
+        roastId = existingRow.id;
+        if (existingRow.status === 'failed') {
           console.log("Resetting failed anonymous roast for retry:", roastId);
           await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'pending', { error_message: null }, true);
         } else {
