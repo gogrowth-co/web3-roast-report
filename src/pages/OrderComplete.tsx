@@ -1,12 +1,19 @@
 
 import React, { useEffect } from 'react';
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, ArrowUpRight, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '@/hooks/useSession';
 import { supabase } from "@/integrations/supabase/client";
 import { trackPurchase } from '@/utils/analytics';
 import SEO from '@/components/SEO';
+
+// A buyer here just paid to find out what's broken -- the natural next
+// question is who fixes it. Nothing on this site pointed to the Growth
+// Audit before this; this is the single highest-intent moment in the whole
+// funnel to make that offer, so it gets a dedicated section, not a banner.
+const GROWTH_AUDIT_URL =
+  "https://mangabeira.net/services/web3-growth-audit?utm_source=web3roast&utm_medium=post_purchase&utm_campaign=roast_to_audit_bridge";
 
 const OrderComplete = () => {
   const { session, loading } = useSession();
@@ -145,7 +152,36 @@ const OrderComplete = () => {
             </p>
           </div>
         </div>
-        
+
+        <div className="rounded-xl border border-sky-500/20 bg-gradient-to-r from-sky-500/10 to-sky-900/10 p-6 mb-8 max-w-2xl w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="bg-sky-500/20 p-2 rounded-full shrink-0">
+              <Compass className="h-5 w-5 text-sky-400" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-sky-400 font-semibold mb-1">
+                Next step
+              </p>
+              <p className="text-white font-semibold">
+                You just paid to find out what's broken. Ready for someone to fix it?
+              </p>
+              <p className="text-gray-400 text-sm mt-1">
+                The Web3 Growth Audit is a human-led deep dive: on-chain data, community
+                health, and a prioritized action plan to execute, not just diagnose.
+              </p>
+            </div>
+          </div>
+          <a
+            href={GROWTH_AUDIT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-sky-500/40 px-4 py-2.5 text-sm font-medium text-sky-300 hover:bg-sky-500/10 transition-colors whitespace-nowrap"
+          >
+            See the Growth Audit
+            <ArrowUpRight className="h-4 w-4" />
+          </a>
+        </div>
+
         <div className="flex gap-4">
           <Button variant="outline" className="border-zinc-700" onClick={() => navigate('/')}>
             Return to Home

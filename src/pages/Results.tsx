@@ -7,6 +7,7 @@ import ScreenshotSection from '@/components/results/ScreenshotSection';
 import FeedbackSection from '@/components/results/FeedbackSection';
 import ScoreSummary from '@/components/results/ScoreSummary';
 import UpgradeBanner from '@/components/results/UpgradeBanner';
+import GrowthAuditBridge from '@/components/results/GrowthAuditBridge';
 import SignupOverlay from '@/components/results/SignupOverlay';
 import ScoreCircle from '@/components/ScoreCircle';
 import { useSession } from '@/hooks/useSession';
@@ -387,11 +388,15 @@ const Results = () => {
           </div>
         </div>
 
+        <div className="mt-8">
+          <GrowthAuditBridge />
+        </div>
+
         <div className="mt-10 text-center text-gray-500 text-sm">
           © 2025 Web3 ROAST. All rights reserved.
         </div>
       </div>
-      
+
       <UpgradeBanner user={user} onSignUp={handleSignUp} />
     </div>
   );
