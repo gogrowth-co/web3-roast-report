@@ -94,6 +94,7 @@ async function sendConversionEvent(params: {
   sourceUrl: string;
   eventId: string;
   email?: string | null;
+  oppref?: string | null;
 }) {
   try {
     const capiKey = Deno.env.get('CHATGPT_ADS_CONVERSION_KEY');
@@ -101,10 +102,9 @@ async function sendConversionEvent(params: {
       console.error('Conversion event skipped: CHATGPT_ADS_CONVERSION_KEY not set');
       return;
     }
-    // No oppref (OpenAI's own click-attribution id) is captured on the
-    // frontend yet -- this relies on the user object below for probabilistic
-    // match-rate attribution in the meantime. Follow-up: capture oppref on
-    // ad landing and thread it through to the purchase record.
+    // oppref (OpenAI's own click-attribution id) is passed straight through
+    // when the browser captured one at landing (see analytics.ts); the user
+    // object below (hashed email) is the fallback match-rate signal either way.
     const user: Record<string, unknown> = {};
     if (params.email) user.emails_sha256 = [await sha256Hex(params.email)];
 
@@ -120,6 +120,7 @@ async function sendConversionEvent(params: {
           timestamp_ms: Date.now(),
           action_source: 'web',
           source_url: params.sourceUrl,
+          ...(params.oppref ? { oppref: params.oppref } : {}),
           ...(Object.keys(user).length > 0 ? { user } : {}),
           data: { type: 'contents', amount: params.amount, currency: params.currency.toUpperCase() },
         }],
@@ -224,6 +225,7 @@ serve(async (req) => {
         sourceUrl: `${checkoutOrigin}/order-complete?session_id=${sessionId}`,
         eventId: `${sessionId}:order_created`,
         email: session.customer_email,
+        oppref: metadata?.oppref || null,
       });
 
       // Update the purchase record

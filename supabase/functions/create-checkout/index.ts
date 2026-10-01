@@ -48,6 +48,7 @@ async function sendConversionEvent(params: {
   email?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
+  oppref?: string | null;
 }) {
   try {
     const capiKey = Deno.env.get('CHATGPT_ADS_CONVERSION_KEY');
@@ -76,6 +77,7 @@ async function sendConversionEvent(params: {
           timestamp_ms: Date.now(),
           action_source: 'web',
           source_url: params.sourceUrl,
+          ...(params.oppref ? { oppref: params.oppref } : {}),
           ...(Object.keys(user).length > 0 ? { user } : {}),
           data: { type: 'contents', amount: params.amount, currency: params.currency.toUpperCase() },
         }],
@@ -105,7 +107,14 @@ serve(async (req) => {
     
     // Parse request body
     const requestData = await req.json();
-    const { roastId } = requestData;
+    const { roastId, oppref: rawOppref } = requestData;
+    // Stripe metadata values are capped at 500 chars -- an oversized or
+    // malformed oppref must never be able to break checkout creation itself.
+    // OpenAI's own identifiers are short opaque strings; 200 chars is
+    // generous headroom while staying well under Stripe's limit.
+    const oppref = typeof rawOppref === 'string' && rawOppref.length > 0 && rawOppref.length <= 200
+      ? rawOppref
+      : null;
 
     if (!roastId) {
       throw new Error('Missing roast ID');
@@ -166,7 +175,10 @@ serve(async (req) => {
       // origin lets the webhook build the correct order-complete URL for the
       // conversion event's source_url -- without it, a purchase started on
       // roast.mangabeira.net would get misreported as web3roast.com.
-      metadata: { roastId, origin: req.headers.get('origin') ?? '' },
+      // oppref is OpenAI's ad-click attribution id (captured client-side on
+      // landing, see analytics.ts) -- stored here so stripe-webhook can
+      // forward it with the order_created event too, once the sale is real.
+      metadata: { roastId, origin: req.headers.get('origin') ?? '', oppref: oppref ?? '' },
     });
 
     // Save the checkout session to the purchases table
@@ -199,6 +211,7 @@ serve(async (req) => {
       email: user.email,
       ipAddress: firstValidIp(req.headers.get('cf-connecting-ip'), req.headers.get('x-forwarded-for')),
       userAgent: req.headers.get('user-agent'),
+      oppref,
     });
 
     // Return the checkout session URL

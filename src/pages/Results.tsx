@@ -19,6 +19,7 @@ import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import SEO from '@/components/SEO';
 import { cn } from '@/lib/utils';
+import { getOppref } from '@/utils/analytics';
 import type { AIAnalysis } from '@/types/analysis';
 
 const Results = () => {
@@ -127,7 +128,7 @@ const Results = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { roastId: id }
+        body: { roastId: id, oppref: getOppref() }
       });
 
       if (error) {

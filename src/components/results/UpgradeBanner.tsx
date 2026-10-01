@@ -6,6 +6,7 @@ import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useParams } from "react-router-dom";
+import { getOppref } from "@/utils/analytics";
 
 interface UpgradeBannerProps {
   user: User | null;
@@ -33,7 +34,7 @@ const UpgradeBanner = ({ user, onSignUp }: UpgradeBannerProps) => {
 
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { roastId: id }
+        body: { roastId: id, oppref: getOppref() }
       });
 
       if (error) {
