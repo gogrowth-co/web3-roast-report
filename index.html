@@ -39,16 +39,21 @@
       gtag('config', 'G-DDHR0VPSE4', {
         linker: { domains: ['mangabeira.net'] }
       });
-      // gtm-roast-07: dual-sent to the SAME GA4 property the Growth Audit
-      // uses (properties/421513615, new stream "Web3 Roast
-      // (roast.mangabeira.net)", G-JYBDZHRMS7) -- this is what actually
-      // unifies the funnel: both products' events land in one property,
-      // reportable together. linker domains decorate outbound links to
-      // mangabeira.net (like the GrowthAuditBridge upsell CTA) with the _gl
-      // param so a click-through session-stitches instead of counting as a
-      // disconnected new session on arrival -- gtag.js on the receiving end
-      // reads _gl automatically, no reciprocal config needed there.
-      gtag('config', 'G-JYBDZHRMS7', {
+      // gtm-roast-07: dual-sent directly to mangabeira.net's own existing
+      // stream (properties/421513615, G-77SVSK807V) -- this is the standard
+      // GA4 cross-domain pattern (one property, both domains report to the
+      // same stream, segmented afterward by the hostName dimension), not a
+      // second stream. A dedicated second stream was tried first and reverted:
+      // GA4 auto-replicates every event to ALL streams sharing a property once
+      // any one of them is configured, so a second stream didn't add a clean
+      // separate view -- it silently duplicated Roast traffic into this same
+      // G-77SVSK807V stream anyway, just unlabeled. Targeting it directly
+      // avoids that duplication entirely. linker domains decorate outbound
+      // links to mangabeira.net (like the GrowthAuditBridge upsell CTA) with
+      // the _gl param so a click-through session-stitches instead of counting
+      // as a disconnected new session on arrival -- gtag.js on the receiving
+      // end reads _gl automatically, no reciprocal config needed there.
+      gtag('config', 'G-77SVSK807V', {
         linker: { domains: ['mangabeira.net'] }
       });
     </script>

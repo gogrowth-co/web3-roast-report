@@ -4,12 +4,14 @@
  */
 
 // Both of Web3 Roast's GA4 destinations (index.html) -- its own standalone
-// property, and the unified stream under the Growth Audit's property
-// (gtm-roast-07). trackEvent's gtag('event', ...) calls already fan out to
-// every configured destination automatically; a page_path re-config, like
-// this SPA's route-change tracking, targets one id at a time and must be
-// sent to both explicitly or the unified property never sees route changes.
-const GA4_MEASUREMENT_IDS = ['G-DDHR0VPSE4', 'G-JYBDZHRMS7'];
+// property, and mangabeira.net's existing stream directly (gtm-roast-07's
+// cross-domain pattern, not a second stream -- see the comment in
+// index.html for why a dedicated stream was tried and reverted). trackEvent's
+// gtag('event', ...) calls already fan out to every configured destination
+// automatically; a page_path re-config, like this SPA's route-change
+// tracking, targets one id at a time and must be sent to both explicitly or
+// the unified property never sees route changes.
+const GA4_MEASUREMENT_IDS = ['G-DDHR0VPSE4', 'G-77SVSK807V'];
 
 // Track a page view
 export const trackPageView = (path: string) => {
