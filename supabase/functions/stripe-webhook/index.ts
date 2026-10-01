@@ -85,10 +85,18 @@ async function sendFulfillmentAlert(details: {
  * reply_to is Gabriel's own inbox, not contact@web3roast.com -- that
  * inbox's access is unconfirmed (see FULFILLMENT_CC above), and a buyer
  * reply going nowhere is worse than one landing in Gabriel's own inbox.
+ *
+ * Stripe retries checkout.session.completed on any non-2xx response, and a
+ * duplicate DB write below would otherwise mean a duplicate email too --
+ * an idempotency key keyed to the checkout session (Resend dedupes for 24h)
+ * makes retries safe without needing our own send-log table. Called via
+ * raw fetch, not the SDK, since v2's emails.send() has no documented way
+ * to set this header.
  */
 async function sendBuyerConfirmationEmail(details: {
   buyerEmail: string | null;
   roastUrl: string | null;
+  sessionId: string;
 }) {
   if (!details.buyerEmail) {
     console.error("Buyer confirmation skipped: no buyer email on the session");
@@ -100,9 +108,15 @@ async function sendBuyerConfirmationEmail(details: {
       console.error("Buyer confirmation skipped: RESEND_API_KEY not set");
       return;
     }
-    const resend = new Resend(resendApiKey);
 
-    const { error } = await resend.emails.send({
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `buyer-confirmation:${details.sessionId}`,
+      },
+      body: JSON.stringify({
       from: "Web3ROAST <contact@email.web3roast.com>",
       to: [details.buyerEmail],
       reply_to: FULFILLMENT_CC,
@@ -124,10 +138,12 @@ async function sendBuyerConfirmationEmail(details: {
           </p>
         </div>
       `,
+      }),
+      signal: AbortSignal.timeout(8000),
     });
 
-    if (error) {
-      console.error("Resend rejected the buyer confirmation (non-fatal):", error);
+    if (!res.ok) {
+      console.error("Resend rejected the buyer confirmation (non-fatal):", await res.text());
     }
   } catch (error) {
     console.error("Failed to send buyer confirmation (non-fatal):", error);
@@ -274,6 +290,7 @@ serve(async (req) => {
       await sendBuyerConfirmationEmail({
         buyerEmail: session.customer_email ?? null,
         roastUrl,
+        sessionId,
       });
 
       // Real purchase signal for the ChatGPT Ads campaigns -- checkout_started
