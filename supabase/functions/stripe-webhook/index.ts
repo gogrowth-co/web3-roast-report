@@ -74,6 +74,66 @@ async function sendFulfillmentAlert(details: {
   }
 }
 
+/**
+ * Customer-facing counterpart to sendFulfillmentAlert above -- that one
+ * tells Gabriel a sale happened, this tells the buyer their order was
+ * received. Distinct from gtm-roast-02; OrderComplete.tsx already promises
+ * "we'll email you when your pro review is ready" but nothing ever sent
+ * that email. Same fire-and-forget contract: a failed send must never fail
+ * the webhook or block granting Pro access.
+ *
+ * reply_to is Gabriel's own inbox, not contact@web3roast.com -- that
+ * inbox's access is unconfirmed (see FULFILLMENT_CC above), and a buyer
+ * reply going nowhere is worse than one landing in Gabriel's own inbox.
+ */
+async function sendBuyerConfirmationEmail(details: {
+  buyerEmail: string | null;
+  roastUrl: string | null;
+}) {
+  if (!details.buyerEmail) {
+    console.error("Buyer confirmation skipped: no buyer email on the session");
+    return;
+  }
+  try {
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("Buyer confirmation skipped: RESEND_API_KEY not set");
+      return;
+    }
+    const resend = new Resend(resendApiKey);
+
+    const { error } = await resend.emails.send({
+      from: "Web3ROAST <contact@email.web3roast.com>",
+      to: [details.buyerEmail],
+      reply_to: FULFILLMENT_CC,
+      subject: "Your Pro Roast is confirmed 🔥",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #333;">We got your Pro Roast order</h1>
+          <p style="font-size: 16px; color: #555;">
+            Your expert video review${details.roastUrl ? ` for <strong>${details.roastUrl}</strong>` : ""}
+            is in the queue. You'll have it in your inbox within 48 hours.
+          </p>
+          <ul style="font-size: 16px; color: #555;">
+            <li><strong>Expert Video Review</strong> — a real walkthrough with actionable fixes, not another auto-generated score.</li>
+            <li><strong>Priority Analysis</strong> — your project goes straight to the front of the queue.</li>
+            <li><strong>Follow-up Support</strong> — one follow-up question after delivery, on us.</li>
+          </ul>
+          <p style="font-size: 14px; color: #888;">
+            Questions in the meantime? Just reply to this email.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("Resend rejected the buyer confirmation (non-fatal):", error);
+    }
+  } catch (error) {
+    console.error("Failed to send buyer confirmation (non-fatal):", error);
+  }
+}
+
 // Per https://developers.openai.com/ads/conversions-api: match identifiers
 // must be SHA-256, lowercase 64-char hex, of the UTF-8-normalized value.
 async function sha256Hex(input: string): Promise<string> {
@@ -208,6 +268,11 @@ serve(async (req) => {
         currency: session.currency ?? null,
         sessionId,
         roastId,
+        roastUrl,
+      });
+
+      await sendBuyerConfirmationEmail({
+        buyerEmail: session.customer_email ?? null,
         roastUrl,
       });
 
