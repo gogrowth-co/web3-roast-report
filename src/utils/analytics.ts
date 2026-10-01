@@ -54,3 +54,36 @@ export const trackPurchase = (transactionId: string, value: number, currency = '
     currency,
   });
 };
+
+// OpenAI's own ad-click attribution identifier. Confirmed against the real
+// oaiq.min.js pixel source (not guessed): it reads an `oppref` query param
+// on landing and caches it for 30 days, first-touch only. The JS pixel
+// isn't installed here (server-side Conversions API is used instead -- see
+// create-checkout/stripe-webhook), so this replicates just the capture half
+// of what that pixel does, so our own server-side events can carry the same
+// identifier and actually match back to the ad click that drove them.
+const OPPREF_STORAGE_KEY = 'oppref';
+
+export const captureOppref = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    const oppref = new URLSearchParams(window.location.search).get('oppref');
+    // First-touch only -- a later organic visit in the same browser must
+    // never overwrite the click id that actually brought this visitor in.
+    if (oppref && !localStorage.getItem(OPPREF_STORAGE_KEY)) {
+      localStorage.setItem(OPPREF_STORAGE_KEY, oppref);
+    }
+  } catch (_) {
+    // localStorage can throw in private/restricted browsing -- attribution
+    // capture is best-effort, never worth breaking the page over.
+  }
+};
+
+export const getOppref = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(OPPREF_STORAGE_KEY);
+  } catch (_) {
+    return null;
+  }
+};

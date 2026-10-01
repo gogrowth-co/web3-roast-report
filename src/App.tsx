@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { HelmetProvider } from 'react-helmet-async';
 import { useSession } from "@/hooks/useSession";
 import { useEffect } from "react";
-import { trackPageView } from "@/utils/analytics";
+import { trackPageView, captureOppref } from "@/utils/analytics";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -23,6 +23,7 @@ const RouteChangeTracker = () => {
   
   useEffect(() => {
     trackPageView(location.pathname + location.search);
+    captureOppref();
   }, [location]);
   
   return null;
