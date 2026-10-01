@@ -107,7 +107,14 @@ serve(async (req) => {
     
     // Parse request body
     const requestData = await req.json();
-    const { roastId, oppref } = requestData;
+    const { roastId, oppref: rawOppref } = requestData;
+    // Stripe metadata values are capped at 500 chars -- an oversized or
+    // malformed oppref must never be able to break checkout creation itself.
+    // OpenAI's own identifiers are short opaque strings; 200 chars is
+    // generous headroom while staying well under Stripe's limit.
+    const oppref = typeof rawOppref === 'string' && rawOppref.length > 0 && rawOppref.length <= 200
+      ? rawOppref
+      : null;
 
     if (!roastId) {
       throw new Error('Missing roast ID');
@@ -204,7 +211,7 @@ serve(async (req) => {
       email: user.email,
       ipAddress: firstValidIp(req.headers.get('cf-connecting-ip'), req.headers.get('x-forwarded-for')),
       userAgent: req.headers.get('user-agent'),
-      oppref: typeof oppref === 'string' ? oppref : null,
+      oppref,
     });
 
     // Return the checkout session URL
