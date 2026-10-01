@@ -34,7 +34,23 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      gtag('config', 'G-DDHR0VPSE4');
+      // Web3 Roast's own standalone property, kept for continuity with its
+      // existing historical data.
+      gtag('config', 'G-DDHR0VPSE4', {
+        linker: { domains: ['mangabeira.net'] }
+      });
+      // gtm-roast-07: dual-sent to the SAME GA4 property the Growth Audit
+      // uses (properties/421513615, new stream "Web3 Roast
+      // (roast.mangabeira.net)", G-JYBDZHRMS7) -- this is what actually
+      // unifies the funnel: both products' events land in one property,
+      // reportable together. linker domains decorate outbound links to
+      // mangabeira.net (like the GrowthAuditBridge upsell CTA) with the _gl
+      // param so a click-through session-stitches instead of counting as a
+      // disconnected new session on arrival -- gtag.js on the receiving end
+      // reads _gl automatically, no reciprocal config needed there.
+      gtag('config', 'G-JYBDZHRMS7', {
+        linker: { domains: ['mangabeira.net'] }
+      });
     </script>
   </head>
 
