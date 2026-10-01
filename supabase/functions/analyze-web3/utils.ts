@@ -78,13 +78,15 @@ export async function handleErrorResponse(error: Error, req: Request): Promise<R
 }
 
 // Environment variable validation
-export function validateEnvironmentVars(): { 
-  supabaseUrl: string, 
-  supabaseKey: string, 
+export function validateEnvironmentVars(): {
+  supabaseUrl: string,
+  supabaseKey: string,
   screenshotApiKey: string,
   geminiApiKey?: string,
   geminiApiKey2?: string,
-  openRouterApiKey?: string
+  openRouterApiKey?: string,
+  firecrawlApiKey?: string,
+  elfaApiKey?: string
 } {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -92,6 +94,13 @@ export function validateEnvironmentVars(): {
   const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
   const geminiApiKey2 = Deno.env.get('GEMINI_API_KEY_2')
   const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY')
+  // Optional -- scrapeWebsiteContent falls back to a raw fetch if this is
+  // unset or Firecrawl itself errors, same resilience pattern as the AI
+  // provider chain below.
+  const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY')
+  // Optional -- GitHub enrichment works without it, social mindshare is
+  // skipped if unset (fetchEnrichment checks for the key before calling).
+  const elfaApiKey = Deno.env.get('ELFA_API_KEY')
 
   if (!supabaseUrl) {
     throw new Error('SUPABASE_URL environment variable not found');
@@ -109,7 +118,7 @@ export function validateEnvironmentVars(): {
     throw new Error('No AI provider key found. Set GEMINI_API_KEY or OPENROUTER_API_KEY.');
   }
   
-  return { supabaseUrl, supabaseKey, screenshotApiKey, geminiApiKey, geminiApiKey2, openRouterApiKey };
+  return { supabaseUrl, supabaseKey, screenshotApiKey, geminiApiKey, geminiApiKey2, openRouterApiKey, firecrawlApiKey, elfaApiKey };
 }
 
 // Validate request parameters

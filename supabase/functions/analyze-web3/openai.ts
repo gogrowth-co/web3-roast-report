@@ -45,6 +45,20 @@ interface ScrapedContent {
   ctaTexts: string[];
   visibleText: string;
   success: boolean;
+  links?: string[];
+}
+
+interface EnrichmentData {
+  github?: {
+    repo: string;
+    stars: number;
+    contributors: number;
+    lastCommitDate: string | null;
+  };
+  socialMindshare?: {
+    handle: string;
+    mentionCount7d: number;
+  };
 }
 
 export interface AiKeys {
@@ -90,10 +104,11 @@ export async function generateWebsiteAnalysis(
   url: string,
   screenshotUrl: string,
   aiKeys: AiKeys,
-  scrapedContent?: ScrapedContent
+  scrapedContent?: ScrapedContent,
+  enrichment?: EnrichmentData
 ): Promise<any> {
   console.log("Starting AI analysis for URL:", url);
-  
+
   // Build context from scraped content
   let contentContext = '';
   if (scrapedContent && scrapedContent.success) {
@@ -107,7 +122,31 @@ export async function generateWebsiteAnalysis(
 - CTA Buttons: ${scrapedContent.ctaTexts.join(', ')}
 - First 3000 characters of visible text: ${scrapedContent.visibleText}`;
   }
-  
+
+  // Real data, not vibes -- only present when the page actually linked a
+  // GitHub repo or X/Twitter handle (no guessed/fuzzy matches feed this).
+  // Absence of either is itself worth noting in the critique, not silently
+  // skipped: a project with no linked GitHub or socials is a real finding.
+  let enrichmentContext = '';
+  if (enrichment?.github) {
+    const g = enrichment.github;
+    const lastCommit = g.lastCommitDate ? new Date(g.lastCommitDate).toISOString().slice(0, 10) : 'unknown';
+    enrichmentContext += `\n- GitHub (${g.repo}): ${g.stars} stars, ${g.contributors}+ contributors, last commit ${lastCommit}.`;
+  } else {
+    enrichmentContext += `\n- GitHub: no repo linked on the page.`;
+  }
+  if (enrichment?.socialMindshare) {
+    const s = enrichment.socialMindshare;
+    enrichmentContext += `\n- X/Twitter (@${s.handle}): ${s.mentionCount7d} mentions across Crypto Twitter in the last 7 days.`;
+  } else {
+    enrichmentContext += `\n- X/Twitter: no handle linked on the page, or no CT mention data available.`;
+  }
+  const realDataBlock = `
+
+**Real Web3 Signal (verified, not inferred from the screenshot):**${enrichmentContext}
+
+Use this data directly in trustAndSocialProof and web3Relevance -- cite the actual numbers rather than guessing at "does this feel Web3-native." A missing GitHub/Twitter link is itself a finding worth calling out, not a gap to ignore.`;
+
   const systemPrompt = `You are a Web3 landing page conversion expert. Your job is to deliver a no-fluff, brutally honest **CRO + UX teardown** for the page at ${url}.
 
 You're speaking directly to a founder or growth lead who wants the truth fast — what's working, what's broken, and what needs fixing ASAP.
@@ -171,7 +210,7 @@ Return your output in this exact structure — valid JSON only, nothing else:
 
 Tone: Candid. Tactical. No filler. Write like a smart Web3 founder is reading this and wants signal, not fluff.
 
-Use BOTH the screenshot (${screenshotUrl}) for visual analysis AND the scraped text content for precise copy analysis.${contentContext}`;
+Use BOTH the screenshot (${screenshotUrl}) for visual analysis AND the scraped text content for precise copy analysis.${contentContext}${realDataBlock}`;
 
   const providers = buildProviderChain(aiKeys);
   if (providers.length === 0) {
