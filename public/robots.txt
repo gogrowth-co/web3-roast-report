@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://web3roast.com/sitemap.xml
+Sitemap: https://roast.mangabeira.net/sitemap.xml

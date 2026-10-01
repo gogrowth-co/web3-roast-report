@@ -91,7 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
             Ready to get started? Head over to your dashboard and submit your first URL!
           </p>
           <div style="margin: 30px 0;">
-            <a href="https://web3roast.com"
+            <a href="https://roast.mangabeira.net"
                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                       color: white;
                       padding: 12px 24px;
