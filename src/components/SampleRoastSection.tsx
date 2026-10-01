@@ -11,7 +11,7 @@ const SampleRoastSection = () => {
       severity: 'Critical issue',
       // Verbatim from the published report, not a paraphrase.
       quote: "This section is critically broken. The 'PENDLE IN NUMBERS' displays '$ 0.00 B' for TVL, Trading Volume, etc. and '0' for Integrations/Markets. This instantly kills all credibility.",
-      url: 'https://web3roast.com/share/mrrHXoNmic',
+      url: 'https://roast.mangabeira.net/share/mrrHXoNmic',
     },
     {
       protocol: 'Aave',
@@ -19,7 +19,7 @@ const SampleRoastSection = () => {
       category: 'CTA Strategy',
       severity: 'Critical issue',
       quote: "This is a critical flaw. The hero's primary CTA is 'Download on iOS,' which is not the core Aave experience for most DeFi users.",
-      url: 'https://web3roast.com/share/hDF_wEpw0T',
+      url: 'https://roast.mangabeira.net/share/hDF_wEpw0T',
     },
     {
       protocol: 'Uniswap',
@@ -27,7 +27,7 @@ const SampleRoastSection = () => {
       category: 'Hero Section',
       severity: 'Medium issue',
       quote: "The hero headline 'Swap anytime, anywhere' is functional but bland. It states what Uniswap does, but not why someone should use Uniswap over a CEX or another DEX.",
-      url: 'https://web3roast.com/share/aILvm3a5p-',
+      url: 'https://roast.mangabeira.net/share/aILvm3a5p-',
     },
   ];
 

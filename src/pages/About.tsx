@@ -13,7 +13,7 @@ const About = () => {
       <SEO 
         title="About Us"
         description="Learn how Web3 ROAST was born from frustration with beautiful but unusable Web3 landing pages, and our mission to bring brutal honesty and practical UX feedback to crypto projects."
-        canonicalUrl="https://web3roast.com/about"
+        canonicalUrl="https://roast.mangabeira.net/about"
       />
       <Header />
       <main className="flex-grow">

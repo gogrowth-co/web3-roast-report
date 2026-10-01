@@ -174,7 +174,7 @@ serve(async (req) => {
       // schema change or an extra purchases<->roasts join.
       // origin lets the webhook build the correct order-complete URL for the
       // conversion event's source_url -- without it, a purchase started on
-      // roast.mangabeira.net would get misreported as web3roast.com.
+      // roast.mangabeira.net would get misreported as the old domain.
       // oppref is OpenAI's ad-click attribution id (captured client-side on
       // landing, see analytics.ts) -- stored here so stripe-webhook can
       // forward it with the order_created event too, once the sale is real.

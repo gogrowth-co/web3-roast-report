@@ -19,7 +19,7 @@ const Index = () => {
       <SEO 
         title="Web3 ROAST - AI Analysis for Web3 Projects"
         description="Get brutally honest feedback on your Web3 project landing page. Our AI analyzes user experience, conversion optimization, and trust factors to help you improve."
-        canonicalUrl="https://web3roast.com"
+        canonicalUrl="https://roast.mangabeira.net"
       />
       <Header />
       <main>

@@ -143,8 +143,8 @@ const SharedRoast = () => {
         title={pageTitle}
         description={seoDescription}
         ogType="article"
-        ogImageUrl={roast.screenshot_url || "https://web3roast.com/og-image.png"}
-        canonicalUrl={`https://web3roast.com/share/${shareId}`}
+        ogImageUrl={roast.screenshot_url || "https://roast.mangabeira.net/og-image.png"}
+        canonicalUrl={`https://roast.mangabeira.net/share/${shareId}`}
       />
       <ResultsHeader />
 

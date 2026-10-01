@@ -15,7 +15,7 @@ const SEO: React.FC<SEOProps> = ({
   title = 'Web3 ROAST - AI Analysis for Web3 Projects',
   description = 'Get brutally honest feedback on your Web3 project landing page. Our AI analysis identifies UX issues, conversion blockers, and trust factors.',
   canonicalUrl,
-  ogImageUrl = 'https://web3roast.com/og-image.png',
+  ogImageUrl = 'https://roast.mangabeira.net/og-image.png',
   ogType = 'website',
   noIndex = false
 }) => {
