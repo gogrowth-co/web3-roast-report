@@ -6,6 +6,7 @@ import { corsHeaders, handleErrorResponse, validateEnvironmentVars, updateRoastS
 import { captureAndStoreScreenshot } from "./screenshot.ts";
 import { generateWebsiteAnalysis, validateAnalysis } from "./openai.ts";
 import { scrapeWebsiteContent } from "./scraper.ts";
+import { fetchEnrichment } from "./enrichment.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,7 +20,7 @@ serve(async (req) => {
     const { sessionId, url: requestedUrl } = requestData;
 
     // Validate environment variables (needed either way)
-    const { supabaseUrl, supabaseKey, screenshotApiKey, geminiApiKey, geminiApiKey2, openRouterApiKey } = validateEnvironmentVars();
+    const { supabaseUrl, supabaseKey, screenshotApiKey, geminiApiKey, geminiApiKey2, openRouterApiKey, firecrawlApiKey, elfaApiKey } = validateEnvironmentVars();
 
     // No roastId means the caller is a logged-out visitor asking for a fresh
     // free roast. anonymous_roasts INSERT is locked to service_role only
@@ -262,7 +263,7 @@ serve(async (req) => {
       // 30-60s pipeline by min(scrape, screenshot).
       console.log("Scraping website content and capturing screenshot concurrently");
       const [scrapedContent, finalScreenshotUrl] = await Promise.all([
-        scrapeWebsiteContent(roast.url),
+        scrapeWebsiteContent(roast.url, firecrawlApiKey),
         captureAndStoreScreenshot(
           roastId,
           roast.url,
@@ -272,12 +273,21 @@ serve(async (req) => {
         ),
       ]);
 
+      // Real Web3 signal (GitHub activity, CT mindshare) when the scraped
+      // page actually links a repo or handle -- only possible now that
+      // scrapedContent.links comes from a real Firecrawl render, not the old
+      // raw-fetch scraper. Depends on scrapedContent, so it can't join the
+      // scrape+screenshot Promise.all above.
+      const enrichment = await fetchEnrichment(scrapedContent.links, elfaApiKey);
+      console.log("Enrichment:", JSON.stringify(enrichment));
+
       // Generate analysis with OpenAI using both screenshot and scraped content
       const analysis = await generateWebsiteAnalysis(
-        roast.url, 
-        finalScreenshotUrl, 
+        roast.url,
+        finalScreenshotUrl,
         { geminiApiKey, geminiApiKey2, openRouterApiKey },
-        scrapedContent
+        scrapedContent,
+        enrichment
       );
       
       // Validate analysis data
