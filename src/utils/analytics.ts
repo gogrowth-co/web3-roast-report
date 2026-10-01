@@ -3,12 +3,19 @@
  * Utility functions for Google Analytics tracking
  */
 
+// Both of Web3 Roast's GA4 destinations (index.html) -- its own standalone
+// property, and the unified stream under the Growth Audit's property
+// (gtm-roast-07). trackEvent's gtag('event', ...) calls already fan out to
+// every configured destination automatically; a page_path re-config, like
+// this SPA's route-change tracking, targets one id at a time and must be
+// sent to both explicitly or the unified property never sees route changes.
+const GA4_MEASUREMENT_IDS = ['G-DDHR0VPSE4', 'G-JYBDZHRMS7'];
+
 // Track a page view
 export const trackPageView = (path: string) => {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('config', 'G-DDHR0VPSE4', {
-      page_path: path
-    });
+  if (typeof window === 'undefined' || !window.gtag) return;
+  for (const id of GA4_MEASUREMENT_IDS) {
+    window.gtag('config', id, { page_path: path });
   }
 };
 
