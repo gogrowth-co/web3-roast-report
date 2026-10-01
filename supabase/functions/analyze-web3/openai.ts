@@ -48,17 +48,26 @@ interface ScrapedContent {
   links?: string[];
 }
 
+// Three states per signal, not a boolean -- "no link found on the page" and
+// "a link was found but the lookup failed" are different facts, and only
+// the first is safe to state to the model as a finding.
+interface GithubSignal {
+  linked: boolean;
+  available: boolean;
+  repo?: string;
+  stars?: number;
+  contributors?: number;
+  lastCommitDate?: string | null;
+}
+interface SocialSignal {
+  linked: boolean;
+  available: boolean;
+  handle?: string;
+  mentionCount7d?: number;
+}
 interface EnrichmentData {
-  github?: {
-    repo: string;
-    stars: number;
-    contributors: number;
-    lastCommitDate: string | null;
-  };
-  socialMindshare?: {
-    handle: string;
-    mentionCount7d: number;
-  };
+  github: GithubSignal;
+  social: SocialSignal;
 }
 
 export interface AiKeys {
@@ -123,29 +132,36 @@ export async function generateWebsiteAnalysis(
 - First 3000 characters of visible text: ${scrapedContent.visibleText}`;
   }
 
-  // Real data, not vibes -- only present when the page actually linked a
-  // GitHub repo or X/Twitter handle (no guessed/fuzzy matches feed this).
-  // Absence of either is itself worth noting in the critique, not silently
-  // skipped: a project with no linked GitHub or socials is a real finding.
+  // Real data, not vibes -- only stated as a finding when the page actually
+  // linked a GitHub repo or X/Twitter handle (no guessed/fuzzy matches feed
+  // this). "No repo linked" and "a repo was linked but we couldn't verify
+  // it" are different facts -- only the first is safe to tell the model as
+  // a finding; the second must read as unverifiable, not as evidence of
+  // anything, or a transient rate limit becomes a false "no GitHub" critique.
   let enrichmentContext = '';
-  if (enrichment?.github) {
-    const g = enrichment.github;
+  const g = enrichment?.github;
+  if (g?.linked && g.available) {
     const lastCommit = g.lastCommitDate ? new Date(g.lastCommitDate).toISOString().slice(0, 10) : 'unknown';
-    enrichmentContext += `\n- GitHub (${g.repo}): ${g.stars} stars, ${g.contributors}+ contributors, last commit ${lastCommit}.`;
+    const contributorsPart = typeof g.contributors === 'number' ? `, ${g.contributors}+ contributors` : '';
+    enrichmentContext += `\n- GitHub (${g.repo}): ${g.stars} stars${contributorsPart}, last commit ${lastCommit}.`;
+  } else if (g?.linked && !g.available) {
+    enrichmentContext += `\n- GitHub: a repo (${g.repo}) is linked on the page, but its data could not be verified right now -- do not treat this as evidence either way.`;
   } else {
     enrichmentContext += `\n- GitHub: no repo linked on the page.`;
   }
-  if (enrichment?.socialMindshare) {
-    const s = enrichment.socialMindshare;
+  const s = enrichment?.social;
+  if (s?.linked && s.available) {
     enrichmentContext += `\n- X/Twitter (@${s.handle}): ${s.mentionCount7d} mentions across Crypto Twitter in the last 7 days.`;
+  } else if (s?.linked && !s.available) {
+    enrichmentContext += `\n- X/Twitter: a handle (@${s.handle}) is linked on the page, but mention data could not be verified right now -- do not treat this as evidence either way.`;
   } else {
-    enrichmentContext += `\n- X/Twitter: no handle linked on the page, or no CT mention data available.`;
+    enrichmentContext += `\n- X/Twitter: no handle linked on the page.`;
   }
   const realDataBlock = `
 
 **Real Web3 Signal (verified, not inferred from the screenshot):**${enrichmentContext}
 
-Use this data directly in trustAndSocialProof and web3Relevance -- cite the actual numbers rather than guessing at "does this feel Web3-native." A missing GitHub/Twitter link is itself a finding worth calling out, not a gap to ignore.`;
+Use this data directly in trustAndSocialProof and web3Relevance -- cite the actual numbers rather than guessing at "does this feel Web3-native." A linked-but-unverifiable signal is not evidence of anything and must not be cited as if it were. A genuinely missing GitHub/Twitter link is a real finding worth calling out.`;
 
   const systemPrompt = `You are a Web3 landing page conversion expert. Your job is to deliver a no-fluff, brutally honest **CRO + UX teardown** for the page at ${url}.
 
