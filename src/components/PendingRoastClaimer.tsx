@@ -30,6 +30,10 @@ const PendingRoastClaimer = () => {
         navigate(`/results/${data.roastId}`, { replace: true });
       } catch (error) {
         console.error("Failed to claim roast:", error);
+        // 404 = no such roast for this browser session. It will never claim,
+        // and a lingering id would suppress future welcome emails.
+        const status = (error as { context?: { status?: number } })?.context?.status;
+        if (status === 404 || status === 400) localStorage.removeItem("pending_roast_id");
         navigate(`/results/${roastId}`, { replace: true });
       }
     })();
