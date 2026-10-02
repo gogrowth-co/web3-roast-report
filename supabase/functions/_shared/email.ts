@@ -119,8 +119,8 @@ export function resultEmail(opts: { url: string; analysis: any; roastId: string 
   lines.push(`<p style="margin:0 0 16px;">The roast stays in your dashboard, so you can come back to it any time.</p>`);
   lines.push(`<p style="margin:0 0 16px;">If you want a person to go through it with you, the Expert Video Roast is a 20-minute walkthrough that I record myself. You can order it from your results page.</p>`);
   lines.push(`<p style="margin:0 0 16px;">Reply to this email and it comes straight to me.</p>`);
-  lines.push(`<p style="margin:0;">Gabriel Mangabeira<br><span style="color:#5B6F85;">Web3 growth consultant, ex-Binance LATAM</span></p>`);
-  text.push("", `Read the full roast: ${link}`, "", "The roast stays in your dashboard, so you can come back to it any time.", "", "If you want a person to go through it with you, the Expert Video Roast is a 20-minute walkthrough that I record myself. You can order it from your results page.", "", "Reply to this email and it comes straight to me.", "", "Gabriel Mangabeira", "Web3 growth consultant, ex-Binance LATAM");
+  lines.push(`<p style="margin:0;">Gabriel Mangabeira</p>`);
+  text.push("", `Read the full roast: ${link}`, "", "The roast stays in your dashboard, so you can come back to it any time.", "", "If you want a person to go through it with you, the Expert Video Roast is a 20-minute walkthrough that I record myself. You can order it from your results page.", "", "Reply to this email and it comes straight to me.", "", "Gabriel Mangabeira");
   return { subject, html: shell(lines.join("\n")), text: text.join("\n") };
 }
 
@@ -130,8 +130,8 @@ export function welcomeEmail() {
     `<p style="margin:0 0 16px;">Your Web3 Roast account is ready. Paste a project URL and you get a score, a category breakdown, and fixes ranked by impact.</p>`,
     button("Roast a page", SITE),
     `<p style="margin:0 0 16px;">Reply to this email and it comes straight to me.</p>`,
-    `<p style="margin:0;">Gabriel Mangabeira<br><span style="color:#5B6F85;">Web3 growth consultant, ex-Binance LATAM</span></p>`,
+    `<p style="margin:0;">Gabriel Mangabeira</p>`,
   ].join("\n"));
-  const text = ["Hi,", "", "Your Web3 Roast account is ready. Paste a project URL and you get a score, a category breakdown, and fixes ranked by impact.", "", `Roast a page: ${SITE}`, "", "Reply to this email and it comes straight to me.", "", "Gabriel Mangabeira", "Web3 growth consultant, ex-Binance LATAM"].join("\n");
+  const text = ["Hi,", "", "Your Web3 Roast account is ready. Paste a project URL and you get a score, a category breakdown, and fixes ranked by impact.", "", `Roast a page: ${SITE}`, "", "Reply to this email and it comes straight to me.", "", "Gabriel Mangabeira"].join("\n");
   return { subject: "Your Web3 Roast account is ready", html, text };
 }

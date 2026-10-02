@@ -36,6 +36,17 @@ const Results = () => {
 
   const { data: roast, isLoading, error, retryAnalysis, isRetrying, retryCount, isAnonymous } = useRoastStatus(id);
 
+  // Remember an anonymous visitor's roast as soon as they see it, so a signup
+  // from anywhere (header, login page, Google) claims it and the result email
+  // can be sent. Claiming needs the matching session id, so this is safe.
+  // Only once the analysis is complete: claiming copies the row, so an
+  // unfinished roast would be claimed half-done and never finish.
+  useEffect(() => {
+    if (isAnonymous && id && roast?.status === 'completed') {
+      localStorage.setItem('pending_roast_id', id);
+    }
+  }, [isAnonymous, id, roast?.status]);
+
   const handleSignUp = () => {
     // Store roast ID to claim after signup
     localStorage.setItem('pending_roast_id', id);
