@@ -16,6 +16,7 @@ import SharedRoast from "./pages/SharedRoast";
 import OrderComplete from "./pages/OrderComplete";
 import About from "./pages/About";
 import Dashboard from "./pages/Dashboard";
+import PendingRoastClaimer from "@/components/PendingRoastClaimer";
 
 // Track page views
 const RouteChangeTracker = () => {
@@ -42,6 +43,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <RouteChangeTracker />
+            <PendingRoastClaimer />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route 
