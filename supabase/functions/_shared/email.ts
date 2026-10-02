@@ -18,11 +18,11 @@ export async function sendEmail(opts: {
   html: string;
   text: string;
   idempotencyKey: string;
-}): Promise<boolean> {
+}): Promise<{ ok: boolean; error?: string }> {
   const key = Deno.env.get("RESEND_API_KEY");
   if (!key) {
     console.error("Email skipped: RESEND_API_KEY not set");
-    return false;
+    return { ok: false, error: "RESEND_API_KEY not set" };
   }
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -43,13 +43,15 @@ export async function sendEmail(opts: {
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
-      console.error("Resend rejected email (non-fatal):", res.status, (await res.text()).slice(0, 200));
-      return false;
+      const detail = `${res.status} ${(await res.text()).slice(0, 240)}`;
+      console.error("Resend rejected email (non-fatal):", detail);
+      return { ok: false, error: detail };
     }
-    return true;
+    return { ok: true };
   } catch (error) {
-    console.error("Email send failed (non-fatal):", error instanceof Error ? error.message : error);
-    return false;
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("Email send failed (non-fatal):", detail);
+    return { ok: false, error: detail };
   }
 }
 

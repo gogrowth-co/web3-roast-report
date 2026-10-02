@@ -35,12 +35,12 @@ serve(async (req: Request): Promise<Response> => {
     if (userError || !userData?.user?.email) return json({ error: "Unauthorized" }, 401);
 
     // One welcome per user: a double-submit or retry can't send it twice.
-    const ok = await sendEmail({
+    const result = await sendEmail({
       to: userData.user.email,
       ...welcomeEmail(),
       idempotencyKey: `welcome:${userData.user.id}`,
     });
-    return json({ success: ok }, 200);
+    return json({ success: result.ok, error: result.error }, 200);
   } catch (error) {
     console.error("Error sending welcome email:", error);
     return json({ error: "Unable to send welcome email" }, 500);
