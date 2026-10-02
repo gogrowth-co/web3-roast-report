@@ -76,6 +76,25 @@ serve(async (req) => {
     }
 
     // Insert into roasts table
+    // Already claimed by this user (double call, retry, two tabs): hand back
+    // the existing roast instead of inserting a duplicate and re-emailing.
+    if (anonymousData.claimed_by_user_id === userId) {
+      const { data: existing } = await supabase
+        .from('roasts')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('url', anonymousData.url)
+        .eq('created_at', anonymousData.created_at)
+        .limit(1)
+        .maybeSingle()
+      if (existing?.id) {
+        return new Response(
+          JSON.stringify({ success: true, roastId: existing.id }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     const { data: roastData, error: insertError } = await supabase
       .from('roasts')
       .insert({

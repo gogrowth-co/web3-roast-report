@@ -17,73 +17,45 @@ const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Claim pending roast after successful authentication
+  // After authentication: start a roast from a pending URL, else go to the dashboard
   useEffect(() => {
     const claimPendingRoast = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        const pendingRoastId = localStorage.getItem('pending_roast_id');
-        const sessionId = localStorage.getItem('roast_session_id');
-        
-        if (pendingRoastId && sessionId) {
+        // A pending anonymous roast is claimed by PendingRoastClaimer (App),
+        // which runs whenever a session exists; nothing to do here for it.
+        if (localStorage.getItem('pending_roast_id')) return;
+
+        // Check for pending URL from UrlForm redirect
+        const pendingUrl = localStorage.getItem('pending_roast_url') || sessionStorage.getItem('pending_url');
+        if (pendingUrl) {
           try {
-            console.log('Claiming roast:', { pendingRoastId, sessionId });
+            const { data, error } = await supabase
+              .from('roasts')
+              .insert([
+                { 
+                  url: pendingUrl,
+                  status: 'pending',
+                  user_id: user.id
+                }
+              ])
+              .select('id')
+              .single();
+
+            if (error) throw error;
             
-            // Call claim-roast edge function
-            const { data, error } = await supabase.functions.invoke('claim-roast', {
-              body: { roastId: pendingRoastId, sessionId }
-            });
-            
-            if (error) {
-              console.error('Failed to claim roast:', error);
-              throw error;
-            }
-            
-            console.log('Roast claimed successfully:', data);
-            
-            // Clean up
-            localStorage.removeItem('pending_roast_id');
-            
-            // Redirect back to results
-            const returnTo = location.state?.returnTo || `/results/${pendingRoastId}`;
-            navigate(returnTo);
-          } catch (error) {
-            console.error('Failed to claim roast:', error);
-            // Still redirect even if claim fails
-            navigate(`/results/${pendingRoastId}`);
+            localStorage.removeItem('pending_roast_url');
+            sessionStorage.removeItem('pending_url');
+            toast.success("Analysis started!");
+            navigate(`/results/${data.id}`);
+          } catch (error: any) {
+            toast.error(error.message);
+            console.error(error);
+            navigate('/');
           }
         } else {
-          // Check for pending URL from UrlForm redirect
-          const pendingUrl = localStorage.getItem('pending_roast_url') || sessionStorage.getItem('pending_url');
-          if (pendingUrl) {
-            try {
-              const { data, error } = await supabase
-                .from('roasts')
-                .insert([
-                  { 
-                    url: pendingUrl,
-                    status: 'pending',
-                    user_id: user.id
-                  }
-                ])
-                .select('id')
-                .single();
-
-              if (error) throw error;
-              
-              localStorage.removeItem('pending_roast_url');
-              sessionStorage.removeItem('pending_url');
-              toast.success("Analysis started!");
-              navigate(`/results/${data.id}`);
-            } catch (error: any) {
-              toast.error(error.message);
-              console.error(error);
-              navigate('/');
-            }
-          } else {
-            navigate('/dashboard');
-          }
+          navigate('/dashboard');
         }
       }
     };
