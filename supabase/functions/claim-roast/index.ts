@@ -76,6 +76,16 @@ serve(async (req) => {
     }
 
     // Insert into roasts table
+    // Claiming copies the row. An unfinished analysis would be copied
+    // half-done and the original would finish without the copy ever seeing
+    // it, so refuse until it completes; the client keeps the id and retries.
+    if (anonymousData.status !== 'completed') {
+      return new Response(
+        JSON.stringify({ error: 'Analysis not finished yet' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Already claimed by this user (double call, retry, two tabs): hand back
     // the existing roast instead of inserting a duplicate and re-emailing.
     if (anonymousData.claimed_by_user_id === userId) {
