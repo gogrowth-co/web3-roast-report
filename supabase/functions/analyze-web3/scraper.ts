@@ -97,7 +97,11 @@ async function scrapeViaFirecrawl(url: string, apiKey: string): Promise<ScrapedC
       body: JSON.stringify({
         url,
         formats: ['html', 'links'],
-        onlyMainContent: true,
+        // false on purpose: onlyMainContent strips the footer, where most
+        // projects keep their GitHub/X links -- caught live on aave.com,
+        // which then got a false "no GitHub or X linked" finding. The footer
+        // is stripped from the copy-extraction HTML below instead.
+        onlyMainContent: false,
         timeout: 30000,
       }),
       signal: AbortSignal.timeout(35000),
@@ -114,7 +118,7 @@ async function scrapeViaFirecrawl(url: string, apiKey: string): Promise<ScrapedC
       return null;
     }
 
-    const extracted = extractFromHtml(body.data.html);
+    const extracted = extractFromHtml(String(body.data.html).replace(/<footer[\s\S]*?<\/footer>/gi, ''));
     const links: string[] = Array.isArray(body.data.links)
       ? body.data.links.filter((l: unknown) => typeof l === 'string')
       : [];
