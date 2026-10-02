@@ -115,7 +115,7 @@ const HowItWorks = () => {
             }
           ].map((item, i) => (
             <div key={i} className="relative">
-              <div className="absolute -left-3 -top-3 w-8 h-8 rounded-full bg-web3-purple flex items-center justify-center font-bold">
+              <div className="absolute -left-3 -top-3 w-8 h-8 rounded-full bg-web3-purple text-web3-dark flex items-center justify-center font-bold">
                 {item.step}
               </div>
               <Card className="bg-web3-gray border-none h-full">

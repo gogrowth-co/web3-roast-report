@@ -19,7 +19,7 @@ const Footer = () => {
           <div>
             <div className="flex items-center gap-1 mb-4">
               <span className="text-2xl font-bold gradient-text">WEB3 ROAST</span>
-              <div className="items-center bg-web3-orange text-xs px-2 py-0.5 rounded-full ml-1 font-semibold">
+              <div className="items-center bg-web3-orange text-web3-dark text-xs px-2 py-0.5 rounded-full ml-1 font-semibold">
                 BETA
               </div>
             </div>

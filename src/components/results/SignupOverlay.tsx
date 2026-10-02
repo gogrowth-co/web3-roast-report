@@ -19,8 +19,8 @@ const SignupOverlay = ({
   return (
     <div className="text-center px-8 py-12 max-w-md">
       <div className="mb-6">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/20 flex items-center justify-center">
-          <Icon className="w-8 h-8 text-purple-400" />
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-web3-purple/20 flex items-center justify-center">
+          <Icon className="w-8 h-8 text-web3-purple" />
         </div>
         <h3 className="text-2xl font-bold text-white mb-3">
           {title}
@@ -31,7 +31,7 @@ const SignupOverlay = ({
       </div>
       <Button
         onClick={onSignUp}
-        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold px-8 py-4 rounded-lg transition-all transform hover:scale-105"
+        className="w-full bg-web3-orange hover:bg-web3-orange/90 text-web3-dark font-semibold px-8 py-4 rounded-lg transition-all transform hover:scale-105"
       >
         Sign Up Now - It's Free
       </Button>

@@ -21,7 +21,7 @@ const GuaranteeSection = () => {
       
       <div className="flex justify-center">
         <Button 
-          className="bg-web3-orange hover:bg-web3-orange/90 text-white"
+          className="bg-web3-orange hover:bg-web3-orange/90 text-web3-dark"
           onClick={scrollToHero}
         >
           Get Your Expert Roast Now

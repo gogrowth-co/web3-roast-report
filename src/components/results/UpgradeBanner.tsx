@@ -74,7 +74,7 @@ const UpgradeBanner = ({ user, onSignUp }: UpgradeBannerProps) => {
             <div className="flex items-center gap-3">
               <Button
                 variant="default"
-                className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white"
+                className="bg-web3-orange hover:bg-web3-orange/90 text-web3-dark"
                 size={isMobile ? "sm" : "default"}
                 onClick={handleUpgradeClick}
                 disabled={isUpgrading}
@@ -93,7 +93,7 @@ const UpgradeBanner = ({ user, onSignUp }: UpgradeBannerProps) => {
         ) : (
           <>
             <div className="flex items-center mb-3 sm:mb-0">
-              <Lock className="h-5 w-5 text-purple-500 mr-2" />
+              <Lock className="h-5 w-5 text-web3-purple mr-2" />
               <span className="text-sm sm:text-base font-medium">
                 Sign up free to unlock full analysis and recommendations
               </span>
@@ -101,7 +101,7 @@ const UpgradeBanner = ({ user, onSignUp }: UpgradeBannerProps) => {
             <div className="flex items-center gap-3">
               <Button
                 variant="default"
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                className="bg-web3-orange hover:bg-web3-orange/90 text-web3-dark"
                 size={isMobile ? "sm" : "default"}
                 onClick={onSignUp}
               >

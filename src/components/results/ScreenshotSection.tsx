@@ -53,7 +53,7 @@ const ScreenshotSection = ({ screenshotUrl }: ScreenshotSectionProps) => {
             <>
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
-                  <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                  <Loader2 className="h-8 w-8 animate-spin text-web3-purple" />
                 </div>
               )}
               <div

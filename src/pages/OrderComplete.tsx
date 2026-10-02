@@ -94,14 +94,13 @@ const OrderComplete = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-web3-dark">
       <SEO 
         title="Order Complete - Web3 ROAST Pro Upgrade"
         description="Thank you for upgrading to Web3 ROAST Pro! Your video review will be delivered within 48 hours."
       />
       <div className="max-w-4xl mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-screen">
         <div className="relative mb-8">
-          <div className="absolute inset-0 rounded-full bg-green-500 blur-lg opacity-20"></div>
           <CheckCircle className="h-16 w-16 text-green-500 relative z-10" />
         </div>
         
@@ -153,13 +152,13 @@ const OrderComplete = () => {
           </div>
         </div>
 
-        <div className="rounded-xl border border-sky-500/20 bg-gradient-to-r from-sky-500/10 to-sky-900/10 p-6 mb-8 max-w-2xl w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="rounded-xl border border-web3-purple/30 bg-web3-gray p-6 mb-8 max-w-2xl w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="bg-sky-500/20 p-2 rounded-full shrink-0">
-              <Compass className="h-5 w-5 text-sky-400" />
+            <div className="bg-web3-purple/20 p-2 rounded-full shrink-0">
+              <Compass className="h-5 w-5 text-web3-purple" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-sky-400 font-semibold mb-1">
+              <p className="text-xs uppercase tracking-wide text-web3-purple font-semibold mb-1">
                 Next step
               </p>
               <p className="text-white font-semibold">
@@ -175,7 +174,7 @@ const OrderComplete = () => {
             href={GROWTH_AUDIT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-sky-500/40 px-4 py-2.5 text-sm font-medium text-sky-300 hover:bg-sky-500/10 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-web3-purple/40 px-4 py-2.5 text-sm font-medium text-web3-purple hover:bg-web3-purple/10 transition-colors whitespace-nowrap"
           >
             See the Growth Audit
             <ArrowUpRight className="h-4 w-4" />

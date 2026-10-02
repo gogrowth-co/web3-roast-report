@@ -19,7 +19,7 @@ export const NewRoastDialog = () => {
       <DialogTrigger asChild>
         <Button
           size="lg"
-          className="bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(237,81%,62%)] hover:opacity-90 min-h-[44px] w-full sm:w-auto"
+          className="bg-web3-orange hover:bg-web3-orange/90 text-web3-dark min-h-[44px] w-full sm:w-auto"
         >
           <Plus className="w-5 h-5 mr-2" />
           New Roast

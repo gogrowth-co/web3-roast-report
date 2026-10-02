@@ -5,25 +5,25 @@
 
 @layer base {
   :root {
-    --background: 0 0% 4%;
+    --background: 210 75% 14%;
     --foreground: 0 0% 100%;
-    --card: 0 0% 10%;
+    --card: 207 74% 20%;
     --card-foreground: 0 0% 100%;
-    --popover: 0 0% 10%;
+    --popover: 207 74% 20%;
     --popover-foreground: 0 0% 100%;
-    --primary: 255 80% 75%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 63%;
+    --primary: 43 100% 50%;
+    --primary-foreground: 210 75% 14%;
+    --secondary: 210 20% 62%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 63%;
-    --accent: 262 83% 58%;
-    --accent-foreground: 0 0% 100%;
+    --muted: 207 74% 20%;
+    --muted-foreground: 210 20% 62%;
+    --accent: 199 100% 56%;
+    --accent-foreground: 210 75% 14%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 262 83% 58%;
+    --border: 207 60% 28%;
+    --input: 207 60% 28%;
+    --ring: 199 100% 56%;
     --radius: 0.75rem;
     
     --status-completed: 142 71% 45%;
@@ -39,7 +39,11 @@
   }
 
   body {
-    @apply bg-web3-dark text-foreground;
+    @apply bg-web3-dark text-foreground font-sans;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display;
   }
 
   /* Custom scrollbar styles */
@@ -62,13 +66,15 @@
 
   /* Custom selection styles */
   ::selection {
-    @apply bg-web3-purple text-white;
+    @apply bg-web3-purple text-web3-dark;
   }
 }
 
 @layer components {
+  /* Brand rule: no gradients on text. Kept as a class so existing
+     usages stay valid; renders as solid Aqua. */
   .gradient-text {
-    @apply bg-gradient-to-r from-web3-purple to-web3-orange bg-clip-text text-transparent;
+    @apply text-web3-purple;
   }
 
   .section-container {
@@ -83,9 +89,10 @@
     @apply relative;
   }
 
+  /* Brand rule: no glow. A hairline aqua border replaces the blurred halo. */
   .card-glow::before {
     content: '';
-    @apply absolute -inset-0.5 bg-gradient-to-r from-web3-purple to-web3-orange rounded-lg blur opacity-40 transition duration-300 group-hover:opacity-70;
+    @apply absolute -inset-px border border-web3-purple/30 rounded-lg transition duration-300 group-hover:border-web3-purple/70;
     z-index: -1;
   }
 }
