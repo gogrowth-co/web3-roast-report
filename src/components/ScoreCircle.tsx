@@ -9,7 +9,6 @@ interface ScoreCircleProps {
 const ScoreCircle = ({ score, id = 'default' }: ScoreCircleProps) => {
   const circumference = 2 * Math.PI * 60; // r = 60, circumference = 2πr
   const strokeDashoffset = circumference - (score / 100) * circumference;
-  const gradientId = `gradient-${id}`;
   
   return (
     <div className="relative w-48 h-48 mx-auto">
@@ -20,7 +19,7 @@ const ScoreCircle = ({ score, id = 'default' }: ScoreCircleProps) => {
           cy="70"
           r="60"
           fill="transparent"
-          stroke="#e5e7eb20"
+          stroke="#1C4A73"
           strokeWidth="8"
         />
         {/* Progress circle */}
@@ -29,20 +28,13 @@ const ScoreCircle = ({ score, id = 'default' }: ScoreCircleProps) => {
           cy="70"
           r="60"
           fill="transparent"
-          stroke={`url(#${gradientId})`}
+          stroke="#1FB6FF"
           strokeWidth="8"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           transform="rotate(-90 70 70)"
         />
-        {/* Define gradient */}
-        <defs>
-          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#8b5cf6" />
-            <stop offset="100%" stopColor="#c026d3" />
-          </linearGradient>
-        </defs>
         {/* Score text */}
         <text
           x="70"

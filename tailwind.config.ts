@@ -63,16 +63,34 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
+				// Brand palette (mangabeira.net style guide). Token names kept
+				// from the original theme so every component re-themes at once:
+				// purple = Aqua accent, orange = Gold (CTAs), dark = Navy.
 				web3: {
-					dark: '#0F1218',
-					purple: '#9b87f5',
-					orange: '#F97316',
-					gray: '#222222',
-					'light-gray': '#383838',
-					'founder-bg': '#1A1A2E',
-					'founder-orange': '#FF6B35',
-					'muted-text': '#888888'
+					dark: '#0A2540',
+					'dark-deep': '#071829',
+					purple: '#1FB6FF',
+					orange: '#FFB800',
+					gray: '#0D3558',
+					'light-gray': '#1C4A73',
+					'founder-bg': '#071829',
+					'founder-orange': '#FFB800',
+					'muted-text': '#8B9BAD'
+				},
+				// Neutral scales re-tinted to navy so the many gray-*/zinc-*
+				// utility classes follow the brand instead of neutral black.
+				gray: {
+					50: '#F5F7FA', 100: '#E6EBF1', 200: '#D3DBE5', 300: '#B6C2D0', 400: '#8B9BAD',
+					500: '#6D8097', 600: '#4F6479', 700: '#1C4A73', 800: '#0D3558', 900: '#0A2540', 950: '#071829'
+				},
+				zinc: {
+					50: '#F5F7FA', 100: '#E6EBF1', 200: '#D3DBE5', 300: '#B6C2D0', 400: '#8B9BAD',
+					500: '#6D8097', 600: '#2A5C87', 700: '#1C4A73', 800: '#164068', 900: '#0D3558', 950: '#071829'
 				}
+			},
+			fontFamily: {
+				sans: ['Inter', 'system-ui', 'sans-serif'],
+				display: ['Montserrat', 'Arial Black', 'sans-serif']
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

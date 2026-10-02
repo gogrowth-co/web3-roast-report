@@ -97,7 +97,7 @@ const ResultsHeader = ({ isAnonymous = false }: ResultsHeaderProps) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-sm border-b border-zinc-800 bg-black/50">
+    <header className="sticky top-0 z-50 backdrop-blur-sm border-b border-zinc-800 bg-web3-dark/80">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <Button variant="ghost" onClick={() => navigate('/')} className="gap-2">
           <ArrowLeft className="h-4 w-4" />

@@ -141,7 +141,7 @@ const UrlForm = () => {
         </div>
         <Button 
           type="submit" 
-          className="bg-web3-orange hover:bg-web3-orange/90 text-white font-bold"
+          className="bg-web3-orange hover:bg-web3-orange/90 text-web3-dark font-bold"
           disabled={isLoading}
         >
           {isLoading ? (

@@ -213,7 +213,7 @@ const Results = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-web3-dark">
       <SEO 
         title={pageTitle}
         description={seoDescription}
@@ -265,7 +265,7 @@ const Results = () => {
                   disabled={isUpgrading}
                   onClick={handleUpgradeClick}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 group-hover:from-orange-600 group-hover:to-pink-600 transition-all"></div>
+                  <div className="absolute inset-0 bg-web3-orange group-hover:bg-web3-orange/90 transition-all"></div>
                   <div className="relative flex items-center justify-center gap-2">
                     <Sparkles className="h-5 w-5" />
                     <span>{isUpgrading ? 'Processing...' : 'Upgrade to Pro Roast for $49'}</span>
@@ -298,7 +298,7 @@ const Results = () => {
               </div>
               
               {!user && isAnonymous && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-xl">
+                <div className="absolute inset-0 flex items-center justify-center bg-web3-dark/90 backdrop-blur-sm rounded-xl">
                   <SignupOverlay
                     onSignUp={handleSignUp}
                     title="Sign Up to See Full Analysis"
@@ -310,9 +310,9 @@ const Results = () => {
             </div>
             
             {!user && isAnonymous && (
-              <div className="text-center p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+              <div className="text-center p-6 bg-web3-gray rounded-xl border border-web3-purple/30">
                 <p className="text-white font-semibold mb-2">Want the Full Report?</p>
-                <Button onClick={handleSignUp} className="w-full bg-gradient-to-r from-purple-500 to-pink-500">
+                <Button onClick={handleSignUp} className="w-full bg-web3-orange hover:bg-web3-orange/90 text-web3-dark">
                   Sign Up - It's Free
                 </Button>
               </div>
@@ -333,7 +333,7 @@ const Results = () => {
               </div>
               
               {!user && isAnonymous && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-xl">
+                <div className="absolute inset-0 flex items-center justify-center bg-web3-dark/90 backdrop-blur-sm rounded-xl">
                   <SignupOverlay
                     onSignUp={handleSignUp}
                     title="Sign Up to See Full Analysis"
@@ -366,7 +366,7 @@ const Results = () => {
                   disabled={isUpgrading}
                   onClick={handleUpgradeClick}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 group-hover:from-orange-600 group-hover:to-pink-600 transition-all"></div>
+                  <div className="absolute inset-0 bg-web3-orange group-hover:bg-web3-orange/90 transition-all"></div>
                   <div className="relative flex items-center justify-center gap-2">
                     <Sparkles className="h-5 w-5" />
                     <span>{isUpgrading ? 'Processing...' : 'Upgrade to Pro Roast for $49'}</span>
@@ -379,9 +379,9 @@ const Results = () => {
             )}
             
             {!user && isAnonymous && (
-              <div className="text-center p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+              <div className="text-center p-6 bg-web3-gray rounded-xl border border-web3-purple/30">
                 <p className="text-white font-semibold mb-2">Want the Full Report?</p>
-                <Button onClick={handleSignUp} className="w-full bg-gradient-to-r from-purple-500 to-pink-500">
+                <Button onClick={handleSignUp} className="w-full bg-web3-orange hover:bg-web3-orange/90 text-web3-dark">
                   Sign Up - It's Free
                 </Button>
               </div>

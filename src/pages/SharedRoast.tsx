@@ -138,7 +138,7 @@ const SharedRoast = () => {
     : analysis.summary || pageDescription;
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-web3-dark">
       <SEO 
         title={pageTitle}
         description={seoDescription}

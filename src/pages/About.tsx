@@ -98,7 +98,7 @@ const About = () => {
 
           <div className="text-center mt-12">
             <p className="text-xl font-semibold gradient-text">Ready for your Web3 project to get roasted?</p>
-            <a href="/" className="mt-6 inline-block bg-web3-purple hover:bg-web3-purple/90 text-white px-8 py-3 rounded-md font-medium transition-colors">
+            <a href="/" className="mt-6 inline-block bg-web3-orange hover:bg-web3-orange/90 text-web3-dark px-8 py-3 rounded-md font-medium transition-colors">
               Get Your Roast
             </a>
           </div>

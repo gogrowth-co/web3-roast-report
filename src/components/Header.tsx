@@ -43,7 +43,7 @@ const Header = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
         <div className="flex items-center gap-1">
           <span className="text-2xl font-bold gradient-text">WEB3 ROAST</span>
-          <div className="hidden md:flex items-center bg-web3-orange text-xs px-2 py-0.5 rounded-full ml-1 font-semibold animate-pulse">
+          <div className="hidden md:flex items-center bg-web3-orange text-web3-dark text-xs px-2 py-0.5 rounded-full ml-1 font-semibold animate-pulse">
             BETA
           </div>
         </div>
@@ -60,13 +60,13 @@ const Header = () => {
           {loading ? (
             <div className="w-[105px] h-10"></div>
           ) : session ? (
-            <Button variant="default" className="bg-web3-purple hover:bg-web3-purple/90 text-white" asChild>
+            <Button variant="default" className="bg-web3-orange hover:bg-web3-orange/90 text-web3-dark" asChild>
               <Link to="/dashboard">Dashboard</Link>
             </Button>
           ) : (
             <Button 
               variant="default" 
-              className="bg-web3-purple hover:bg-web3-purple/90 text-white"
+              className="bg-web3-orange hover:bg-web3-orange/90 text-web3-dark"
               onClick={scrollToUrlForm}
             >
               Roast It

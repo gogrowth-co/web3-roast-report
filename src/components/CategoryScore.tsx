@@ -16,7 +16,7 @@ const CategoryScore = ({ name, score }: CategoryScoreProps) => {
       </div>
       <Progress 
         value={score} 
-        className="h-2 bg-gray-700/30 [&>div]:bg-gradient-to-r [&>div]:from-purple-500 [&>div]:to-purple-600"
+        className="h-2 bg-gray-700/30 [&>div]:bg-web3-purple"
       />
     </div>
   );

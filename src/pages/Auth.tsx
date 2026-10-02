@@ -165,7 +165,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
+    <div className="min-h-screen flex items-center justify-center bg-web3-dark">
       <SEO 
         title={isSignUp ? "Sign Up - Web3 ROAST" : "Sign In - Web3 ROAST"}
         description={isSignUp 

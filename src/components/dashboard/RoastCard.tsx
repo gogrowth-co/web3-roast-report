@@ -75,7 +75,7 @@ export const RoastCard = ({ roast, onDelete }: RoastCardProps) => {
       <CardFooter className="p-4 pt-0 flex gap-2">
         <Button
           asChild
-          className="flex-1 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(237,81%,62%)] hover:opacity-90"
+          className="flex-1 bg-web3-orange hover:bg-web3-orange/90 text-web3-dark"
         >
           <Link to={`/results/${roast.id}`}>View Details</Link>
         </Button>
