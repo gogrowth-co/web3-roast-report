@@ -3,18 +3,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { Resend } from "npm:resend@2.0.0";
+import { FROM, REPLY_TO } from "../_shared/email.ts";
 
 // Account has exactly one OpenAI Ads pixel (confirmed via the live
 // mangabeira.net GTM container) -- not a secret, it's already public in
 // every page that loads the oaiq snippet.
 const CHATGPT_ADS_PIXEL_ID = "5VyEFmoMWcYdYkCjg6DrYR";
 
-const FULFILLMENT_INBOX = "contact@web3roast.com";
-// contact@web3roast.com's access is uncertain right now (Gabriel, 2026-09-29)
-// -- cc'd directly so the alert isn't relying on an inbox that might not be
-// checked. Remove once gtm-roast-11 (setting up contact@web3roast.com
-// properly) is done and that inbox is confirmed reliable on its own.
-const FULFILLMENT_CC = "gmangabeira@gmail.com";
+// Gabriel's own inbox, by his decision (2026-10-02), until a mangabeira.net
+// mailbox exists. Shared with the buyer email's reply-to.
+const FULFILLMENT_INBOX = REPLY_TO;
 
 /**
  * Fire-and-forget: a failed alert must never fail the webhook itself (Stripe
@@ -44,9 +42,8 @@ async function sendFulfillmentAlert(details: {
     // unverified sender, rate limit) rather than throwing -- so a thrown
     // exception alone won't catch every failure mode. Check both.
     const { error } = await resend.emails.send({
-      from: "Web3ROAST <contact@email.web3roast.com>",
+      from: FROM,
       to: [FULFILLMENT_INBOX],
-      cc: [FULFILLMENT_CC],
       subject: `New Pro Roast sale${details.roastUrl ? ` — ${details.roastUrl}` : ""}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -82,9 +79,8 @@ async function sendFulfillmentAlert(details: {
  * that email. Same fire-and-forget contract: a failed send must never fail
  * the webhook or block granting Pro access.
  *
- * reply_to is Gabriel's own inbox, not contact@web3roast.com -- that
- * inbox's access is unconfirmed (see FULFILLMENT_CC above), and a buyer
- * reply going nowhere is worse than one landing in Gabriel's own inbox.
+ * reply_to is Gabriel's own inbox (REPLY_TO), so a buyer reply always lands
+ * somewhere he reads.
  *
  * Stripe retries checkout.session.completed on any non-2xx response, and a
  * duplicate DB write below would otherwise mean a duplicate email too --
@@ -117,9 +113,9 @@ async function sendBuyerConfirmationEmail(details: {
         'Idempotency-Key': `buyer-confirmation:${details.sessionId}`,
       },
       body: JSON.stringify({
-      from: "Web3ROAST <contact@email.web3roast.com>",
+      from: FROM,
       to: [details.buyerEmail],
-      reply_to: FULFILLMENT_CC,
+      reply_to: REPLY_TO,
       subject: "Your Pro Roast is confirmed 🔥",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

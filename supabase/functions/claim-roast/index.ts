@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4'
+import { resultEmail, sendEmail } from '../_shared/email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -106,6 +107,22 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Failed to update anonymous roast:', updateError)
+    }
+
+    // Result delivery: the signup is the moment to hand over what they came
+    // for. Fire-and-forget in spirit (never fails the claim); the idempotency
+    // key on the anonymous roast id makes a repeated claim call safe.
+    try {
+      const email = userData.user.email
+      if (email && anonymousData.status === 'completed') {
+        const analysis = typeof anonymousData.ai_analysis === 'string'
+          ? JSON.parse(anonymousData.ai_analysis)
+          : anonymousData.ai_analysis
+        const mail = resultEmail({ url: anonymousData.url, analysis, roastId: roastData.id })
+        await sendEmail({ to: email, ...mail, idempotencyKey: `result-email:${roastId}` })
+      }
+    } catch (mailError) {
+      console.error('Result email failed (non-fatal):', mailError)
     }
 
     return new Response(

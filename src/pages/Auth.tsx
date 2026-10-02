@@ -117,18 +117,19 @@ const Auth = () => {
         // Track signup event for analytics
         trackSignUp('email');
         
-        // Send welcome email — recipient is derived server-side from the
-        // authenticated user; we only pass an optional display name.
-        try {
-          await supabase.functions.invoke('send-welcome-email', {
-            body: { name: email.split('@')[0] }
-          });
-        } catch (emailError) {
-          // Don't fail signup if welcome email fails
+        // A visitor who signed up from a scan gets their result email from
+        // claim-roast instead, so a second welcome would be a duplicate.
+        // Recipient is derived server-side from the authenticated user.
+        if (!localStorage.getItem('pending_roast_id')) {
+          try {
+            await supabase.functions.invoke('send-welcome-email');
+          } catch (emailError) {
+            // Don't fail signup if welcome email fails
+          }
         }
-        
-        toast.success("Check your email to confirm your account!");
-        console.log("User signup triggered - welcome email sent");
+
+        // Signups auto-confirm, so there is no confirmation email to wait for.
+        toast.success("Account created. You're signed in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
