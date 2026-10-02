@@ -55,7 +55,9 @@ interface GithubSignal {
   linked: boolean;
   available: boolean;
   repo?: string;
+  scope?: 'repo' | 'org';
   stars?: number;
+  publicRepos?: number;
   contributors?: number;
   lastCommitDate?: string | null;
 }
@@ -141,9 +143,19 @@ export async function generateWebsiteAnalysis(
   let enrichmentContext = '';
   const g = enrichment?.github;
   if (g?.linked && g.available) {
-    const lastCommit = g.lastCommitDate ? new Date(g.lastCommitDate).toISOString().slice(0, 10) : 'unknown';
-    const contributorsPart = typeof g.contributors === 'number' ? `, ${g.contributors}+ contributors` : '';
-    enrichmentContext += `\n- GitHub (${g.repo}): ${g.stars} stars${contributorsPart}, last commit ${lastCommit}.`;
+    // The model has no reliable sense of today's date and called a 2025
+    // commit "future" -- hand it the age explicitly instead of a bare date.
+    const lastIso = g.lastCommitDate ? new Date(g.lastCommitDate) : null;
+    const ageDays = lastIso ? Math.max(0, Math.floor((Date.now() - lastIso.getTime()) / 86400000)) : null;
+    const lastCommit = lastIso
+      ? `${lastIso.toISOString().slice(0, 10)} (${ageDays} days ago; today is ${new Date().toISOString().slice(0, 10)})`
+      : 'unknown';
+    if (g.scope === 'org') {
+      enrichmentContext += `\n- GitHub org (${g.repo}): ${g.stars} total stars across its ${g.publicRepos} most recently active public repos, last push ${lastCommit}.`;
+    } else {
+      const contributorsPart = typeof g.contributors === 'number' ? `, ${g.contributors}+ contributors` : '';
+      enrichmentContext += `\n- GitHub (${g.repo}): ${g.stars} stars${contributorsPart}, last commit ${lastCommit}.`;
+    }
   } else if (g?.linked && !g.available) {
     enrichmentContext += `\n- GitHub: a repo (${g.repo}) is linked on the page, but its data could not be verified right now -- do not treat this as evidence either way.`;
   } else {

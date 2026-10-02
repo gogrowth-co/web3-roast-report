@@ -23,10 +23,12 @@
 export interface GithubSignal {
   linked: boolean;   // a github.com link was found on the page
   available: boolean; // the lookup succeeded (only meaningful if linked)
-  repo?: string;
-  stars?: number;
+  repo?: string;     // "owner/repo" in repo scope, just "owner" in org scope
+  scope?: 'repo' | 'org';
+  stars?: number;    // org scope: summed over its most recently pushed public repos
+  publicRepos?: number; // org scope only
   contributors?: number; // omitted, not zero, when the contributors call failed
-  lastCommitDate?: string | null;
+  lastCommitDate?: string | null; // org scope: most recent push across repos
 }
 
 export interface SocialSignal {
@@ -54,7 +56,15 @@ const GITHUB_SKIP_OWNERS = new Set([
   'collections', 'trending', 'explore', 'settings', 'login', 'join', 'orgs',
 ]);
 
-export function extractGithubRepo(links: string[]): string | null {
+export type GithubTarget = { scope: 'org'; owner: string } | { scope: 'repo'; repo: string };
+
+// Prefer the org/user link: a project's org-wide activity is the honest
+// health signal, whereas the first owner/repo link on a marketing page is
+// usually incidental (a brand-assets zip, an SDK sample). Caught live:
+// uniswap.org links github.com/Uniswap AND a brand-assets download, and
+// matching only owner/repo scored Uniswap as "5 stars".
+export function extractGithubTarget(links: string[]): GithubTarget | null {
+  const parsed: { owner: string; segments: string[] }[] = [];
   for (const link of links) {
     if (getHostname(link) !== 'github.com') continue;
     let pathname: string;
@@ -63,13 +73,18 @@ export function extractGithubRepo(links: string[]): string | null {
     } catch {
       continue;
     }
-    const m = pathname.match(/^\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)/);
-    if (!m) continue;
-    const [, owner, repoRaw] = m;
-    const repo = repoRaw.replace(/\.git$/i, '');
-    if (GITHUB_SKIP_OWNERS.has(owner.toLowerCase()) || !repo) continue;
-    return `${owner}/${repo}`;
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length === 0) continue;
+    const owner = segments[0];
+    if (!/^[a-zA-Z0-9_-]+$/.test(owner) || GITHUB_SKIP_OWNERS.has(owner.toLowerCase())) continue;
+    parsed.push({ owner, segments });
   }
+  const orgLink = parsed.find((p) => p.segments.length === 1);
+  if (orgLink) return { scope: 'org', owner: orgLink.owner };
+  const repoLink = parsed.find((p) => p.segments.length === 2 && /^[a-zA-Z0-9_.-]+$/.test(p.segments[1]));
+  if (repoLink) return { scope: 'repo', repo: `${repoLink.owner}/${repoLink.segments[1].replace(/\.git$/i, '')}` };
+  // Only deep links (blob/raw/releases...) -- they still identify the owner.
+  if (parsed.length > 0) return { scope: 'org', owner: parsed[0].owner };
   return null;
 }
 
@@ -133,6 +148,7 @@ async function fetchGithubStats(repo: string): Promise<GithubSignal> {
       linked: true,
       available: true,
       repo,
+      scope: 'repo',
       stars: repoData.stargazers_count ?? 0,
       contributors,
       lastCommitDate,
@@ -140,6 +156,38 @@ async function fetchGithubStats(repo: string): Promise<GithubSignal> {
   } catch (error) {
     console.error('GitHub enrichment failed:', error instanceof Error ? error.message : error);
     return { linked: true, available: false, repo };
+  }
+}
+
+async function fetchGithubOrgStats(owner: string): Promise<GithubSignal> {
+  const headers = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'web3-roast-enrichment' };
+  try {
+    // 100 most recently pushed public repos: a floor for huge orgs, fine for
+    // a roast. Orgs and personal accounts use different endpoints.
+    let res = await fetch(`https://api.github.com/orgs/${owner}/repos?type=public&sort=pushed&per_page=100`, { headers, signal: AbortSignal.timeout(8000) });
+    if (res.status === 404) {
+      res = await fetch(`https://api.github.com/users/${owner}/repos?type=owner&sort=pushed&per_page=100`, { headers, signal: AbortSignal.timeout(8000) });
+    }
+    if (!res.ok) return { linked: true, available: false, repo: owner, scope: 'org' };
+    const repos = await res.json();
+    if (!Array.isArray(repos) || repos.length === 0) return { linked: true, available: false, repo: owner, scope: 'org' };
+    const own = repos.filter((r: { fork?: boolean }) => !r.fork);
+    const pool = own.length > 0 ? own : repos;
+    const stars = pool.reduce((sum: number, r: { stargazers_count?: number }) => sum + (r.stargazers_count ?? 0), 0);
+    const pushes = pool.map((r: { pushed_at?: string }) => r.pushed_at).filter(Boolean) as string[];
+    pushes.sort();
+    return {
+      linked: true,
+      available: true,
+      repo: owner,
+      scope: 'org',
+      stars,
+      publicRepos: pool.length,
+      lastCommitDate: pushes.length ? pushes[pushes.length - 1] : null,
+    };
+  } catch (error) {
+    console.error('GitHub org enrichment failed:', error instanceof Error ? error.message : error);
+    return { linked: true, available: false, repo: owner, scope: 'org' };
   }
 }
 
@@ -162,11 +210,13 @@ async function fetchSocialMindshare(handle: string, elfaApiKey: string): Promise
 
 export async function fetchEnrichment(links: string[] | undefined, elfaApiKey?: string): Promise<EnrichmentData> {
   const safeLinks = links ?? [];
-  const githubRepo = extractGithubRepo(safeLinks);
+  const githubTarget = extractGithubTarget(safeLinks);
   const twitterHandle = extractTwitterHandle(safeLinks);
 
   const [github, social] = await Promise.all([
-    githubRepo ? fetchGithubStats(githubRepo) : Promise.resolve<GithubSignal>({ linked: false, available: false }),
+    githubTarget
+      ? (githubTarget.scope === 'org' ? fetchGithubOrgStats(githubTarget.owner) : fetchGithubStats(githubTarget.repo))
+      : Promise.resolve<GithubSignal>({ linked: false, available: false }),
     twitterHandle && elfaApiKey
       ? fetchSocialMindshare(twitterHandle, elfaApiKey)
       : Promise.resolve<SocialSignal>({ linked: !!twitterHandle, available: false, handle: twitterHandle ?? undefined }),
