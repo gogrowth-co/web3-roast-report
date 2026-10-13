@@ -152,6 +152,20 @@ export const useRoastStatus = (roastId: string) => {
     refetchInterval: 3000, // Poll every 3 seconds for faster updates
   });
 
+  // A run the edge runtime killed stays on 'processing'. analyze-web3
+  // restarts it once it is older than 4 minutes, but only when called, so
+  // nudge it once from here instead of leaving the visitor on a spinner.
+  const [staleNudged, setStaleNudged] = useState(false);
+  useEffect(() => {
+    const row = result.data as { status?: string; processing_started_at?: string | null; created_at?: string } | undefined;
+    if (staleNudged || leadToken || row?.status !== 'processing') return;
+    const startedAt = Date.parse(row.processing_started_at ?? row.created_at ?? '');
+    if (Number.isFinite(startedAt) && Date.now() - startedAt > 4 * 60 * 1000 + 5000) {
+      setStaleNudged(true);
+      retryAnalysis();
+    }
+  }, [result.data, staleNudged, leadToken]);
+
   return {
     ...result,
     retryAnalysis,
