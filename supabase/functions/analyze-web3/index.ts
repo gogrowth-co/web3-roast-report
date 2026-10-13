@@ -286,7 +286,8 @@ serve(async (req) => {
           roast.url,
           supabaseUrl,
           supabaseKey,
-          screenshotApiKey
+          screenshotApiKey,
+          Deno.env.get('SCREENSHOTONE_ACCESS_KEY')
         ).catch((screenshotError) => {
           console.error("Screenshot unavailable, continuing without it:", screenshotError instanceof Error ? screenshotError.message : screenshotError);
           return null;

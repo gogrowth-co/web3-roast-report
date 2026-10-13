@@ -4,13 +4,17 @@ import { corsHeaders } from './utils.ts';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000; // 2 seconds
 const SCREENSHOT_TIMEOUT_MS = 25_000;
+// ScreenshotOne gets its own render budget (timeout param) plus a margin
+// for the HTTP round trip.
+const FALLBACK_RENDER_TIMEOUT_S = 28;
+const FALLBACK_FETCH_TIMEOUT_MS = 32_000;
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // The APIFlash URL carries the access key as a query param; never log it.
-const redact = (url: string) => url.replace(/access_key=[^&]+/, 'access_key=REDACTED');
+const redact = (url: string) => url.replace(/access_key=[^&]+/g, 'access_key=REDACTED');
 
 // timeoutMs bounds each attempt. Without it a hung request (APIFlash on a
 // heavy page can sit ~60s) times retries, and the edge runtime kills the
@@ -38,7 +42,8 @@ export async function captureAndStoreScreenshot(
   url: string,
   supabaseUrl: string,
   supabaseKey: string,
-  screenshotApiKey: string
+  screenshotApiKey: string,
+  fallbackApiKey?: string | null
 ): Promise<string> {
   console.log("Verifying 'roast-screenshots' bucket exists");
   try {
@@ -54,16 +59,28 @@ export async function captureAndStoreScreenshot(
       throw new Error('Screenshot storage bucket not found. Please create it first.');
     }
 
-    // Capture screenshot using APIFlash with full_page set to true
-    console.log("Capturing full page screenshot for URL:", url);
-    const screenshotUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(url)}&format=jpeg&quality=90&full_page=true&dimension=1024x768`;
-    
-    // At most two 25s tries (~52s): the caller carries on without a
-    // screenshot if this fails, and the AI step still needs time after it.
-    const screenshotResponse = await fetchWithRetry(screenshotUrl, {}, 1, SCREENSHOT_TIMEOUT_MS);
-
-    const screenshotBlob = await screenshotResponse.blob();
-    console.log("Full page screenshot captured successfully, size:", screenshotBlob.size, "bytes");
+    // 1) APIFlash full page, one 25s try. Heavy pages (animated DeFi heroes
+    //    such as pendle.finance) time out on a full-page render with any
+    //    provider, so a retry here only burns time.
+    // 2) ScreenshotOne, top of the page only (1024x768): renders those pages
+    //    and is a second monthly quota when APIFlash runs out.
+    // Worst case ~57s; the caller continues without a screenshot after that.
+    let screenshotBlob: Blob;
+    try {
+      console.log("Capturing full page screenshot for URL:", url);
+      const screenshotUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${screenshotApiKey}&url=${encodeURIComponent(url)}&format=jpeg&quality=90&full_page=true&dimension=1024x768`;
+      const screenshotResponse = await fetchWithRetry(screenshotUrl, {}, 0, SCREENSHOT_TIMEOUT_MS);
+      screenshotBlob = await screenshotResponse.blob();
+      if (screenshotBlob.size === 0) throw new Error("APIFlash returned an empty image");
+    } catch (primaryError) {
+      if (!fallbackApiKey) throw primaryError;
+      console.warn("APIFlash failed, trying ScreenshotOne (top of page):", primaryError instanceof Error ? primaryError.message : primaryError);
+      const fallbackUrl = `https://api.screenshotone.com/take?access_key=${fallbackApiKey}&url=${encodeURIComponent(url)}&full_page=false&format=jpg&image_quality=85&viewport_width=1024&viewport_height=768&block_ads=true&block_cookie_banners=true&timeout=${FALLBACK_RENDER_TIMEOUT_S}`;
+      const fallbackResponse = await fetchWithRetry(fallbackUrl, {}, 0, FALLBACK_FETCH_TIMEOUT_MS);
+      screenshotBlob = await fallbackResponse.blob();
+      console.log("ScreenshotOne fallback captured the top of the page");
+    }
+    console.log("Screenshot captured, size:", screenshotBlob.size, "bytes");
     
     if (screenshotBlob.size === 0) {
       console.error("Screenshot capture returned empty image");
