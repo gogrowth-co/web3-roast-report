@@ -2,8 +2,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
-import { Resend } from "npm:resend@2.0.0";
 import { FROM, REPLY_TO } from "../_shared/email.ts";
+import { isRoastSale, parseProductIds } from "./roast-sale.ts";
+
+// Deno only has async Web Crypto, so signatures must be checked with
+// constructEventAsync and this provider. The sync constructEvent throws on
+// every request ("SubtleCryptoProvider cannot be used in a synchronous
+// context"), which rejected every Stripe event with a 400 (gtm-roast-19).
+const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
 // Account has exactly one OpenAI Ads pixel (confirmed via the live
 // mangabeira.net GTM container) -- not a secret, it's already public in
@@ -17,10 +23,8 @@ const FULFILLMENT_INBOX = REPLY_TO;
 /**
  * Fire-and-forget: a failed alert must never fail the webhook itself (Stripe
  * retries on non-2xx, and purchase processing must not hinge on Resend being
- * up or configured). The Resend client is constructed IN HERE, not at module
- * scope — its constructor can throw on a missing/invalid key, and at module
- * scope that would crash the whole function before `serve` ever runs, taking
- * down real payment processing over an optional notification.
+ * up or configured). Nothing here runs at module scope, so a missing or invalid Resend key can
+ * never crash the function before `serve` runs.
  */
 async function sendFulfillmentAlert(details: {
   buyerEmail: string | null;
@@ -36,12 +40,18 @@ async function sendFulfillmentAlert(details: {
       console.error("Fulfillment alert skipped: RESEND_API_KEY not set");
       return;
     }
-    const resend = new Resend(resendApiKey);
-
-    // The SDK resolves with { data: null, error } on failure (bad key,
-    // unverified sender, rate limit) rather than throwing -- so a thrown
-    // exception alone won't catch every failure mode. Check both.
-    const { error } = await resend.emails.send({
+    // Raw fetch, not the SDK, so the alert carries an Idempotency-Key keyed
+    // to the checkout session: a repeated Stripe delivery (including Roast
+    // payment-link sales, which have no purchases row to dedupe on) does not
+    // email Gabriel twice. Resend dedupes the key for 24h.
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `fulfillment-alert:${details.sessionId}`,
+      },
+      body: JSON.stringify({
       from: FROM,
       to: [FULFILLMENT_INBOX],
       subject: `New Pro Roast sale${details.roastUrl ? ` — ${details.roastUrl}` : ""}`,
@@ -61,10 +71,12 @@ async function sendFulfillmentAlert(details: {
           </ul>
         </div>
       `,
+      }),
+      signal: AbortSignal.timeout(8000),
     });
 
-    if (error) {
-      console.error("Resend rejected the fulfillment alert (non-fatal):", error);
+    if (!res.ok) {
+      console.error("Resend rejected the fulfillment alert (non-fatal):", await res.text());
     }
   } catch (error) {
     console.error("Failed to send fulfillment alert (non-fatal):", error);
@@ -220,6 +232,7 @@ serve(async (req) => {
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
       apiVersion: '2023-10-16',
+      httpClient: Stripe.createFetchHttpClient(),
     });
 
     // Verify and construct the event
@@ -231,7 +244,13 @@ serve(async (req) => {
     // Verify the webhook signature
     let event;
     try {
-      event = stripe.webhooks.constructEvent(body, stripeSignature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        stripeSignature,
+        webhookSecret,
+        undefined,
+        cryptoProvider,
+      );
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       console.error(`Webhook signature verification failed: ${errorMsg}`);
@@ -245,10 +264,46 @@ serve(async (req) => {
       auth: { persistSession: false }
     });
 
+    console.log(`Signature verified: ${event.id} ${event.type}`);
+
     // Handle the event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const sessionId = session.id;
+
+      // Shared Stripe account: only act on Roast sales (see roast-sale.ts).
+      // Stripe API errors here throw to the outer catch and return 500, so
+      // Stripe retries instead of a real sale being dropped.
+      const sessionMetadata = session.metadata as Record<string, string> | null;
+      let lineItemProductIds: string[] = [];
+      const roastProductIds = new Set(parseProductIds(Deno.env.get('ROAST_PRODUCT_IDS')));
+      if (!sessionMetadata?.roastId) {
+        const roastPriceId = Deno.env.get('STRIPE_PRICE_ID');
+        if (roastPriceId) {
+          const roastPrice = await stripe.prices.retrieve(roastPriceId);
+          roastProductIds.add(typeof roastPrice.product === 'string' ? roastPrice.product : roastPrice.product.id);
+        } else {
+          console.error('STRIPE_PRICE_ID not set: only roastId-tagged checkouts can be matched');
+        }
+        const lineItems = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 20 });
+        type LineItem = { price?: { product?: string | { id: string } | null } | null };
+        lineItemProductIds = (lineItems.data as LineItem[])
+          .map((item) => item.price?.product)
+          .filter((p): p is string | { id: string } => !!p)
+          .map((p) => (typeof p === 'string' ? p : p.id));
+      }
+      if (!isRoastSale({ metadata: sessionMetadata, lineItemProductIds, roastProductIds })) {
+        console.log(`Ignored ${event.id}: checkout ${sessionId} is not a Roast sale`);
+        return new Response(JSON.stringify({ received: true, ignored: 'not a Roast sale' }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
+
+      // Retries are safe without our own send log: the alert and the buyer
+      // email carry a Resend Idempotency-Key per session and the ads
+      // conversion dedupes on eventId, so a repeated delivery re-sends
+      // nothing that already went out and retries anything that failed.
 
       // Fulfillment alert fires FIRST, before any DB writes below, and is
       // never gated on their success. Stripe's signature check above already
@@ -256,7 +311,10 @@ serve(async (req) => {
       // bookkeeping, and a bookkeeping failure is exactly the case where
       // Gabriel most needs to hear that a sale happened, not the case where
       // the alert should silently get skipped.
-      const metadata = session.metadata as Record<string, string> | null;
+      const metadata = sessionMetadata;
+      // Payment-link checkouts often leave customer_email empty and put the
+      // address in customer_details instead.
+      const buyerEmail: string | null = session.customer_email ?? session.customer_details?.email ?? null;
       const roastId = metadata?.roastId ?? null;
       // Set at checkout-creation time from the request's own origin -- a
       // purchase started on roast.mangabeira.net must report that URL, not
@@ -275,7 +333,7 @@ serve(async (req) => {
       }
 
       await sendFulfillmentAlert({
-        buyerEmail: session.customer_email ?? null,
+        buyerEmail,
         amount: session.amount_total ?? null,
         currency: session.currency ?? null,
         sessionId,
@@ -284,7 +342,7 @@ serve(async (req) => {
       });
 
       await sendBuyerConfirmationEmail({
-        buyerEmail: session.customer_email ?? null,
+        buyerEmail,
         roastUrl,
         sessionId,
       });
@@ -302,7 +360,7 @@ serve(async (req) => {
         currency: session.currency ?? 'usd',
         sourceUrl: `${checkoutOrigin}/order-complete?session_id=${sessionId}`,
         eventId: `${sessionId}:order_created`,
-        email: session.customer_email,
+        email: buyerEmail,
         oppref: metadata?.oppref || null,
       });
 
