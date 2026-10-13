@@ -29,9 +29,11 @@ serve(async (req) => {
   }
 
   try {
-    const { roastId, sessionId } = await req.json();
+    const { roastId, sessionId, leadToken } = await req.json();
 
-    if (!roastId || !sessionId) {
+    // Ownership is proven by the browser's session id, or by the lead token
+    // from the report email (capture-lead), which works on any device.
+    if (!roastId || (!sessionId && !leadToken)) {
       return new Response(
         JSON.stringify({ error: 'Missing roastId or sessionId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -45,7 +47,7 @@ serve(async (req) => {
       );
     }
 
-    if (typeof sessionId !== 'string') {
+    if (sessionId != null && typeof sessionId !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Invalid sessionId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -78,14 +80,40 @@ serve(async (req) => {
     // Same "not found" response whether the row doesn't exist or the
     // session doesn't match -- don't reveal that a given id exists to a
     // visitor who can't prove ownership of it.
-    if (!row || row.session_id !== sessionId) {
+    // Leads for this roast: any lead unlocks the full report, and a matching
+    // lead token stands in for the session id.
+    let leadTokens: string[] = [];
+    if (row) {
+      const leadsResponse = await fetch(
+        `${supabaseUrl}/rest/v1/roast_leads?anonymous_roast_id=eq.${encodeURIComponent(roastId)}&select=token`,
+        { headers: { 'Authorization': `Bearer ${supabaseKey}`, 'apikey': supabaseKey } }
+      );
+      if (leadsResponse.ok) {
+        leadTokens = (await leadsResponse.json()).map((l: { token: string }) => l.token);
+      } else {
+        // A visitor relying on the lead token must not get a false "not
+        // found" from a transient read error; let them retry instead.
+        const detail = await leadsResponse.text();
+        if (leadToken) throw new Error(`Failed to read leads: ${detail}`);
+        console.error('Failed to read leads (non-fatal):', detail);
+      }
+    }
+    const ownsBySession = !!row && typeof sessionId === 'string' && row.session_id === sessionId;
+    const ownsByToken = !!row && typeof leadToken === 'string' && leadToken.length > 0 && leadTokens.includes(leadToken);
+
+    if (!row || (!ownsBySession && !ownsByToken)) {
       return new Response(
         JSON.stringify({ error: 'Roast not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    return new Response(JSON.stringify({ roast: row }), {
+    // session_id is the browser's bearer secret for this row; a visitor who
+    // got in by lead token gets the report, not the other browser's id.
+    const { session_id: _sessionId, ...publicRow } = row;
+    const roast = ownsBySession ? row : publicRow;
+
+    return new Response(JSON.stringify({ roast, unlocked: leadTokens.length > 0 }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

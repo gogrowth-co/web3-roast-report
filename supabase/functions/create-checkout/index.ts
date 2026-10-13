@@ -99,15 +99,16 @@ serve(async (req) => {
   }
 
   try {
-    // Get auth token from request
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
-    
+
     // Parse request body
     const requestData = await req.json();
-    const { roastId, oppref: rawOppref } = requestData;
+    const { roastId, oppref: rawOppref, sessionId, leadToken, gaClientId: rawGaClientId } = requestData;
+    // GA4 client id ("123.456") so the server-side purchase event lands in
+    // the buyer's own session. Anything else is dropped.
+    const gaClientId = typeof rawGaClientId === 'string' && /^\d{1,20}\.\d{1,20}$/.test(rawGaClientId)
+      ? rawGaClientId
+      : null;
     // Stripe metadata values are capped at 500 chars -- an oversized or
     // malformed oppref must never be able to break checkout creation itself.
     // OpenAI's own identifiers are short opaque strings; 200 chars is
@@ -145,17 +146,51 @@ serve(async (req) => {
       auth: { persistSession: false }
     });
 
-    // Get user data from the token
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
-      throw new Error('Error fetching user or user not found');
+    // Signed-in buyer, if the bearer is a user JWT. The public anon key is a
+    // JWT too but resolves to no user, which means an anonymous buyer.
+    let user: { id: string; email?: string } | null = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      const { data } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+      user = data?.user ?? null;
     }
+
+    // Anonymous buyer (gtm-roast-20): no account needed. They must own the
+    // anonymous roast, by browser session id or by the lead token from the
+    // report email. Stripe collects the email when we don't have one.
+    let anonymousRoastId: string | null = null;
+    let knownEmail: string | null = user?.email ?? null;
+    if (!user) {
+      const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (typeof roastId !== 'string' || !UUID_REGEX.test(roastId)) {
+        throw new Error('Invalid roast ID');
+      }
+      const { data: anonRoast } = await supabase
+        .from('anonymous_roasts')
+        .select('id, session_id')
+        .eq('id', roastId)
+        .maybeSingle();
+      const { data: leads } = await supabase
+        .from('roast_leads')
+        .select('email, token, created_at')
+        .eq('anonymous_roast_id', roastId)
+        .order('created_at', { ascending: false });
+      const tokenLead = typeof leadToken === 'string' ? (leads ?? []).find((l) => l.token === leadToken) : undefined;
+      const ownsBySession = !!anonRoast && typeof sessionId === 'string' && anonRoast.session_id === sessionId;
+      if (!anonRoast || (!ownsBySession && !tokenLead)) {
+        throw new Error('Roast not found');
+      }
+      anonymousRoastId = anonRoast.id;
+      // Prefill only from the buyer's own emailed link; several people can
+      // unlock one roast, so the session's latest lead may be someone else.
+      knownEmail = tokenLead?.email ?? null;
+    }
+
+    const origin = req.headers.get('origin') ?? '';
+    const backToResults = `${origin}/results/${roastId}${typeof leadToken === 'string' && leadToken ? `?k=${encodeURIComponent(leadToken)}` : ''}`;
 
     // Create a Stripe checkout session
     const session = await stripe.checkout.sessions.create({
-      customer_email: user.email,
+      ...(knownEmail ? { customer_email: knownEmail } : {}),
       line_items: [
         {
           price: priceId,
@@ -168,7 +203,7 @@ serve(async (req) => {
       // OrderComplete.tsx look up which purchase just completed and its
       // real amount, for revenue tracking (gtm-roast-04).
       success_url: `${req.headers.get('origin')}/order-complete?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get('origin')}/results/${roastId}`,
+      cancel_url: backToResults,
       // Carried through to the webhook via the Stripe event itself, so the
       // fulfillment alert can say which project needs the video without a
       // schema change or an extra purchases<->roasts join.
@@ -178,14 +213,18 @@ serve(async (req) => {
       // oppref is OpenAI's ad-click attribution id (captured client-side on
       // landing, see analytics.ts) -- stored here so stripe-webhook can
       // forward it with the order_created event too, once the sale is real.
-      metadata: { roastId, origin: req.headers.get('origin') ?? '', oppref: oppref ?? '' },
+      // ga_cid lets stripe-webhook send the GA4 purchase server-side, into the
+      // buyer's own session, whether or not they ever reach /order-complete.
+      metadata: { roastId, origin, oppref: oppref ?? '', ga_cid: gaClientId ?? '' },
     });
 
     // Save the checkout session to the purchases table
     const { error: insertError } = await supabase
       .from('purchases')
       .insert({
-        user_id: user.id,
+        user_id: user?.id ?? null,
+        anonymous_roast_id: anonymousRoastId,
+        email: knownEmail,
         session_id: session.id,
         price_id: priceId,
         status: 'pending',
@@ -208,7 +247,7 @@ serve(async (req) => {
       currency: session.currency ?? 'usd',
       sourceUrl: `${req.headers.get('origin')}/results/${roastId}`,
       eventId: `${session.id}:checkout_started`,
-      email: user.email,
+      email: knownEmail,
       ipAddress: firstValidIp(req.headers.get('cf-connecting-ip'), req.headers.get('x-forwarded-for')),
       userAgent: req.headers.get('user-agent'),
       oppref,

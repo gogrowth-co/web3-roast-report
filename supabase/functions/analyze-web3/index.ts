@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 
+import { isPublicWebUrl } from "../_shared/url.ts";
 import { corsHeaders, handleErrorResponse, validateEnvironmentVars, updateRoastStatus, validateRequest } from "./utils.ts";
 import { captureAndStoreScreenshot } from "./screenshot.ts";
 import { generateWebsiteAnalysis, validateAnalysis } from "./openai.ts";
@@ -33,6 +34,11 @@ serve(async (req) => {
     if (!roastId) {
       if (!requestedUrl || !sessionId) {
         throw new Error('Missing url or sessionId for a new anonymous roast');
+      }
+      // Before the daily cap and any paid work: a local file path or
+      // localhost can never be screenshotted and only burns a quota slot.
+      if (!isPublicWebUrl(requestedUrl)) {
+        throw new Error('Please enter a public website address, like https://yourproject.xyz');
       }
 
       // Same-session, same-URL resubmission hits the table's own

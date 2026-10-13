@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { trackUrlSubmission } from '@/utils/analytics';
+import { isPublicWebUrl } from '@/utils/url';
 
 const UrlForm = () => {
   const [url, setUrl] = useState('');
@@ -14,14 +15,7 @@ const UrlForm = () => {
   const [validationError, setValidationError] = useState('');
   const navigate = useNavigate();
 
-  const validateUrl = (input: string) => {
-    try {
-      const urlObj = new URL(input);
-      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-    } catch (e) {
-      return false;
-    }
-  };
+  const validateUrl = (input: string) => isPublicWebUrl(input);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,8 +30,8 @@ const UrlForm = () => {
     }
 
     if (!validateUrl(trimmedUrl)) {
-      setValidationError("Please enter a valid URL (including http:// or https://)");
-      toast.error("Please enter a valid URL (including http:// or https://)");
+      setValidationError("Please enter a public website address, like https://yourproject.xyz");
+      toast.error("Please enter a public website address, like https://yourproject.xyz");
       return;
     }
 

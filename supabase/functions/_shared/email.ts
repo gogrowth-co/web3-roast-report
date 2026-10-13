@@ -55,11 +55,13 @@ export async function sendEmail(opts: {
   }
 }
 
-function shell(inner: string): string {
+const SIGNUP_FOOTER = "You are getting this because you signed up at roast.mangabeira.net.";
+
+function shell(inner: string, footer = SIGNUP_FOOTER): string {
   return `<div style="background:#F5F7FA;padding:24px 12px;">
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:8px;padding:32px;color:#0A2540;font-size:16px;line-height:1.6;">
 ${inner}
-<p style="margin:28px 0 0;font-size:13px;line-height:1.5;color:#8B9BAD;">Gabriel Mangabeira, Web3 Roast. You are getting this because you signed up at roast.mangabeira.net.</p>
+<p style="margin:28px 0 0;font-size:13px;line-height:1.5;color:#8B9BAD;">Gabriel Mangabeira, Web3 Roast. ${escapeHtml(footer)}</p>
 </div></div>`;
 }
 
@@ -134,4 +136,39 @@ export function welcomeEmail() {
   ].join("\n"));
   const text = ["Hi,", "", "Your Web3 Roast account is ready. Paste a project URL and you get a score, a category breakdown, and fixes ranked by impact.", "", `Roast a page: ${SITE}`, "", "Reply to this email and it comes straight to me.", "", "Gabriel Mangabeira"].join("\n");
   return { subject: "Your Web3 Roast account is ready", html, text };
+}
+
+// Sent when an anonymous visitor gives an email to get the full report
+// (capture-lead). Carries the report link (works on any device, via the lead
+// token) and the Pro Roast offer, which used to be shown only after signup.
+// deno-lint-ignore no-explicit-any
+export function leadEmail(opts: { url: string; analysis: any; reportLink: string; offerLink: string }) {
+  let domain = opts.url;
+  try { domain = new URL(opts.url).hostname.replace(/^www\./, ""); } catch { /* keep raw */ }
+  const a = opts.analysis ?? {};
+  const score: number | null = typeof a.overallScore === "number" ? a.overallScore : null;
+  const cats = Object.entries(a.categoryScores ?? {}).filter(([, v]) => typeof v === "number") as [string, number][];
+  cats.sort((x, y) => y[1] - x[1]);
+  const weakest = cats.length > 1 ? cats[cats.length - 1] : undefined;
+  const fix = pickFix(a);
+  const d = escapeHtml(domain);
+
+  const subject = score != null ? `Your full roast of ${domain} (${score}/100)` : `Your full roast of ${domain}`;
+  const lines: string[] = [];
+  const text: string[] = [];
+  lines.push(`<p style="margin:0 0 16px;">Hi,</p>`);
+  lines.push(`<p style="margin:0 0 16px;">Here is the full roast of ${d}${score != null ? `. It scored <strong>${score}/100</strong>` : ""}.${weakest ? ` The weakest area is ${escapeHtml(weakest[0])} (${weakest[1]}%).` : ""}</p>`);
+  text.push("Hi,", "", `Here is the full roast of ${domain}${score != null ? `. It scored ${score}/100` : ""}.${weakest ? ` The weakest area is ${weakest[0]} (${weakest[1]}%).` : ""}`);
+  if (fix) {
+    lines.push(`<p style="margin:0 0 8px;">The finding I would fix first:</p>`);
+    lines.push(`<p style="margin:0 0 16px;padding:12px 16px;background:#F5F7FA;border-radius:8px;"><strong>${escapeHtml(clip(fix.issue, 160))}</strong><br>${escapeHtml(clip(fix.fix, 420))}</p>`);
+    text.push("", "The finding I would fix first:", clip(fix.issue, 160), clip(fix.fix, 420));
+  }
+  lines.push(button("Read the full report", opts.reportLink));
+  lines.push(`<p style="margin:0 0 16px;">Want a person to go through it with you? The Pro Roast is a 20-minute video walkthrough of your page that I record myself, with the fixes in order. It arrives within 48 hours. No account needed.</p>`);
+  lines.push(button("Get the Pro Roast", opts.offerLink));
+  lines.push(`<p style="margin:0 0 16px;">Reply to this email and it comes straight to me.</p>`);
+  lines.push(`<p style="margin:0;">Gabriel Mangabeira</p>`);
+  text.push("", `Read the full report: ${opts.reportLink}`, "", "Want a person to go through it with you? The Pro Roast is a 20-minute video walkthrough of your page that I record myself, with the fixes in order. It arrives within 48 hours. No account needed.", `Get the Pro Roast: ${opts.offerLink}`, "", "Reply to this email and it comes straight to me.", "", "Gabriel Mangabeira");
+  return { subject, html: shell(lines.join("\n"), "You are getting this because you asked for this report at roast.mangabeira.net."), text: text.join("\n") };
 }

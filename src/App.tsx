@@ -61,7 +61,7 @@ const App = () => {
               <Route path="/share/:shareId" element={<SharedRoast />} />
               <Route 
                 path="/order-complete" 
-                element={session ? <OrderComplete /> : <Navigate to="/auth" replace />} 
+                element={<OrderComplete />} 
               />
               <Route path="/about" element={<About />} />
               <Route path="*" element={<NotFound />} />

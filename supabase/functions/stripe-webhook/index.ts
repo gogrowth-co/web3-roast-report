@@ -2,8 +2,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
-import { Resend } from "npm:resend@2.0.0";
 import { FROM, REPLY_TO } from "../_shared/email.ts";
+import { isRoastSale, parseProductIds } from "./roast-sale.ts";
+
+// Deno only has async Web Crypto, so signatures must be checked with
+// constructEventAsync and this provider. The sync constructEvent throws on
+// every request ("SubtleCryptoProvider cannot be used in a synchronous
+// context"), which rejected every Stripe event with a 400 (gtm-roast-19).
+const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
 // Account has exactly one OpenAI Ads pixel (confirmed via the live
 // mangabeira.net GTM container) -- not a secret, it's already public in
@@ -17,10 +23,8 @@ const FULFILLMENT_INBOX = REPLY_TO;
 /**
  * Fire-and-forget: a failed alert must never fail the webhook itself (Stripe
  * retries on non-2xx, and purchase processing must not hinge on Resend being
- * up or configured). The Resend client is constructed IN HERE, not at module
- * scope — its constructor can throw on a missing/invalid key, and at module
- * scope that would crash the whole function before `serve` ever runs, taking
- * down real payment processing over an optional notification.
+ * up or configured). Nothing here runs at module scope, so a missing or invalid Resend key can
+ * never crash the function before `serve` runs.
  */
 async function sendFulfillmentAlert(details: {
   buyerEmail: string | null;
@@ -36,12 +40,18 @@ async function sendFulfillmentAlert(details: {
       console.error("Fulfillment alert skipped: RESEND_API_KEY not set");
       return;
     }
-    const resend = new Resend(resendApiKey);
-
-    // The SDK resolves with { data: null, error } on failure (bad key,
-    // unverified sender, rate limit) rather than throwing -- so a thrown
-    // exception alone won't catch every failure mode. Check both.
-    const { error } = await resend.emails.send({
+    // Raw fetch, not the SDK, so the alert carries an Idempotency-Key keyed
+    // to the checkout session: a repeated Stripe delivery (including Roast
+    // payment-link sales, which have no purchases row to dedupe on) does not
+    // email Gabriel twice. Resend dedupes the key for 24h.
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `fulfillment-alert:${details.sessionId}`,
+      },
+      body: JSON.stringify({
       from: FROM,
       to: [FULFILLMENT_INBOX],
       subject: `New Pro Roast sale${details.roastUrl ? ` — ${details.roastUrl}` : ""}`,
@@ -61,10 +71,12 @@ async function sendFulfillmentAlert(details: {
           </ul>
         </div>
       `,
+      }),
+      signal: AbortSignal.timeout(8000),
     });
 
-    if (error) {
-      console.error("Resend rejected the fulfillment alert (non-fatal):", error);
+    if (!res.ok) {
+      console.error("Resend rejected the fulfillment alert (non-fatal):", await res.text());
     }
   } catch (error) {
     console.error("Failed to send fulfillment alert (non-fatal):", error);
@@ -207,6 +219,57 @@ async function sendConversionEvent(params: {
   }
 }
 
+// Server-side GA4 purchase (Measurement Protocol). The browser event on
+// /order-complete only fired if the buyer stayed logged in on that page and
+// the webhook beat a 10s poll; anonymous buyers could never fire it. Sent to
+// both GA4 destinations the site reports to (Roast's own property and
+// mangabeira.net's stream). Each needs its own Measurement Protocol secret;
+// a destination without one is skipped. Fire-and-forget, like the others.
+const GA4_DESTINATIONS: [string, string][] = [
+  ['G-DDHR0VPSE4', 'GA4_MP_SECRET_ROAST'],
+  ['G-77SVSK807V', 'GA4_MP_SECRET_MANGABEIRA'],
+];
+
+async function sendGa4Purchase(params: {
+  clientId: string | null;
+  transactionId: string;
+  value: number; // decimal currency units (49.00), not cents
+  currency: string;
+  pageLocation: string;
+}) {
+  const clientId = params.clientId || `${Math.floor(Math.random() * 1e10)}.${Math.floor(Date.now() / 1000)}`;
+  const body = JSON.stringify({
+    client_id: clientId,
+    events: [{
+      name: 'purchase',
+      params: {
+        transaction_id: params.transactionId,
+        value: params.value,
+        currency: params.currency.toUpperCase(),
+        items: [{ item_id: 'pro-roast', item_name: 'Pro Roast', price: params.value, quantity: 1 }],
+        page_location: params.pageLocation,
+        engagement_time_msec: 1,
+      },
+    }],
+  });
+  await Promise.all(GA4_DESTINATIONS.map(async ([measurementId, secretName]) => {
+    const secret = Deno.env.get(secretName);
+    if (!secret) {
+      console.error(`GA4 purchase skipped for ${measurementId}: ${secretName} not set`);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${encodeURIComponent(secret)}`,
+        { method: 'POST', body, signal: AbortSignal.timeout(3000) },
+      );
+      if (!res.ok) console.error(`GA4 purchase rejected for ${measurementId} (non-fatal): HTTP ${res.status}`);
+    } catch (error) {
+      console.error(`GA4 purchase failed for ${measurementId} (non-fatal):`, error);
+    }
+  }));
+}
+
 serve(async (req) => {
   try {
     const stripeSignature = req.headers.get('stripe-signature');
@@ -220,6 +283,7 @@ serve(async (req) => {
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
       apiVersion: '2023-10-16',
+      httpClient: Stripe.createFetchHttpClient(),
     });
 
     // Verify and construct the event
@@ -231,7 +295,13 @@ serve(async (req) => {
     // Verify the webhook signature
     let event;
     try {
-      event = stripe.webhooks.constructEvent(body, stripeSignature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        stripeSignature,
+        webhookSecret,
+        undefined,
+        cryptoProvider,
+      );
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       console.error(`Webhook signature verification failed: ${errorMsg}`);
@@ -245,10 +315,46 @@ serve(async (req) => {
       auth: { persistSession: false }
     });
 
+    console.log(`Signature verified: ${event.id} ${event.type}`);
+
     // Handle the event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const sessionId = session.id;
+
+      // Shared Stripe account: only act on Roast sales (see roast-sale.ts).
+      // Stripe API errors here throw to the outer catch and return 500, so
+      // Stripe retries instead of a real sale being dropped.
+      const sessionMetadata = session.metadata as Record<string, string> | null;
+      let lineItemProductIds: string[] = [];
+      const roastProductIds = new Set(parseProductIds(Deno.env.get('ROAST_PRODUCT_IDS')));
+      if (!sessionMetadata?.roastId) {
+        const roastPriceId = Deno.env.get('STRIPE_PRICE_ID');
+        if (roastPriceId) {
+          const roastPrice = await stripe.prices.retrieve(roastPriceId);
+          roastProductIds.add(typeof roastPrice.product === 'string' ? roastPrice.product : roastPrice.product.id);
+        } else {
+          console.error('STRIPE_PRICE_ID not set: only roastId-tagged checkouts can be matched');
+        }
+        const lineItems = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 20 });
+        type LineItem = { price?: { product?: string | { id: string } | null } | null };
+        lineItemProductIds = (lineItems.data as LineItem[])
+          .map((item) => item.price?.product)
+          .filter((p): p is string | { id: string } => !!p)
+          .map((p) => (typeof p === 'string' ? p : p.id));
+      }
+      if (!isRoastSale({ metadata: sessionMetadata, lineItemProductIds, roastProductIds })) {
+        console.log(`Ignored ${event.id}: checkout ${sessionId} is not a Roast sale`);
+        return new Response(JSON.stringify({ received: true, ignored: 'not a Roast sale' }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
+
+      // Retries are safe without our own send log: the alert and the buyer
+      // email carry a Resend Idempotency-Key per session and the ads
+      // conversion dedupes on eventId, so a repeated delivery re-sends
+      // nothing that already went out and retries anything that failed.
 
       // Fulfillment alert fires FIRST, before any DB writes below, and is
       // never gated on their success. Stripe's signature check above already
@@ -256,7 +362,10 @@ serve(async (req) => {
       // bookkeeping, and a bookkeeping failure is exactly the case where
       // Gabriel most needs to hear that a sale happened, not the case where
       // the alert should silently get skipped.
-      const metadata = session.metadata as Record<string, string> | null;
+      const metadata = sessionMetadata;
+      // Payment-link checkouts often leave customer_email empty and put the
+      // address in customer_details instead.
+      const buyerEmail: string | null = session.customer_email ?? session.customer_details?.email ?? null;
       const roastId = metadata?.roastId ?? null;
       // Set at checkout-creation time from the request's own origin -- a
       // purchase started on roast.mangabeira.net must report that URL, not
@@ -272,44 +381,65 @@ serve(async (req) => {
           .eq('id', roastId)
           .maybeSingle();
         roastUrl = roastRow?.url ?? null;
+        if (!roastUrl) {
+          // Bought without an account: the roast is still anonymous.
+          const { data: anonRow } = await supabase
+            .from('anonymous_roasts')
+            .select('url')
+            .eq('id', roastId)
+            .maybeSingle();
+          roastUrl = anonRow?.url ?? null;
+        }
       }
 
-      await sendFulfillmentAlert({
-        buyerEmail: session.customer_email ?? null,
-        amount: session.amount_total ?? null,
-        currency: session.currency ?? null,
-        sessionId,
-        roastId,
-        roastUrl,
-      });
-
-      await sendBuyerConfirmationEmail({
-        buyerEmail: session.customer_email ?? null,
-        roastUrl,
-        sessionId,
-      });
-
       // Real purchase signal for the ChatGPT Ads campaigns -- checkout_started
-      // fires at create-checkout time; this is the matching order_created for
-      // an actually completed sale, same account pixel and event type Growth
-      // Audit's own checkout campaign already optimizes toward.
-      // sourceUrl must be where the PURCHASE happened, not `roastUrl` (the
-      // customer's own submitted site being audited -- using that would
-      // misattribute the sale to an unrelated third-party domain).
-      await sendConversionEvent({
-        type: 'order_created',
-        amount: session.amount_total ?? 0, // Stripe's amount_total is already in cents
-        currency: session.currency ?? 'usd',
-        sourceUrl: `${checkoutOrigin}/order-complete?session_id=${sessionId}`,
-        eventId: `${sessionId}:order_created`,
-        email: session.customer_email,
-        oppref: metadata?.oppref || null,
-      });
+      // fires at create-checkout time; order_created is the matching event for
+      // an actually completed sale. sourceUrl must be where the PURCHASE
+      // happened, not `roastUrl` (the customer's own audited site).
+      const notifications = Promise.all([
+        sendFulfillmentAlert({
+          buyerEmail,
+          amount: session.amount_total ?? null,
+          currency: session.currency ?? null,
+          sessionId,
+          roastId,
+          roastUrl,
+        }),
+        sendBuyerConfirmationEmail({ buyerEmail, roastUrl, sessionId }),
+        sendConversionEvent({
+          type: 'order_created',
+          amount: session.amount_total ?? 0, // Stripe's amount_total is already in cents
+          currency: session.currency ?? 'usd',
+          sourceUrl: `${checkoutOrigin}/order-complete?session_id=${sessionId}`,
+          eventId: `${sessionId}:order_created`,
+          email: buyerEmail,
+          oppref: metadata?.oppref || null,
+        }),
+        sendGa4Purchase({
+          clientId: metadata?.ga_cid || null,
+          transactionId: sessionId,
+          value: (session.amount_total ?? 0) / 100,
+          currency: session.currency ?? 'usd',
+          pageLocation: `${checkoutOrigin}/order-complete`,
+        }),
+      ]);
+      // Started before the DB writes (so a bookkeeping failure never skips
+      // them) but not awaited on the response path: each helper already
+      // swallows its own errors, and slow email/ads/GA4 calls must not push
+      // the reply past Stripe's timeout. waitUntil keeps the worker alive
+      // until they finish.
+      // deno-lint-ignore no-explicit-any
+      const edgeRuntime = (globalThis as any).EdgeRuntime;
+      if (edgeRuntime?.waitUntil) {
+        edgeRuntime.waitUntil(notifications);
+      } else {
+        await notifications;
+      }
 
       // Update the purchase record
       const { data: purchaseData, error: purchaseError } = await supabase
         .from('purchases')
-        .update({ status: 'complete' })
+        .update({ status: 'complete', ...(buyerEmail ? { email: buyerEmail } : {}) })
         .eq('session_id', sessionId)
         .select('user_id');
 
@@ -318,8 +448,9 @@ serve(async (req) => {
         return new Response(`Error updating purchase: ${purchaseError.message}`, { status: 500 });
       }
 
-      if (purchaseData && purchaseData.length > 0) {
-        const userId = purchaseData[0].user_id;
+      // Anonymous purchases have no user to flag Pro (user_id is null).
+      const userId = purchaseData?.[0]?.user_id ?? null;
+      if (userId) {
 
         // Update the user's is_pro status
         const { error: userUpdateError } = await supabase.auth.admin.updateUserById(
