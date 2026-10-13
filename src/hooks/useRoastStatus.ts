@@ -19,9 +19,18 @@ export const useRoastStatus = (roastId: string) => {
   // (capture-lead). The ?k= lead token from the report email proves
   // ownership on a device that never ran the roast.
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const leadToken = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('k')
-    : null;
+  // index.html moves ?k= into sessionStorage before any analytics tag
+  // loads, so the token never reaches GA or ad pixels.
+  const leadToken = (() => {
+    if (typeof window === 'undefined') return null;
+    const fromUrl = new URLSearchParams(window.location.search).get('k');
+    if (fromUrl) return fromUrl;
+    try {
+      return sessionStorage.getItem(`roast_lead_token:${window.location.pathname}`);
+    } catch {
+      return null;
+    }
+  })();
 
   // Function to start the analysis with retry logic
   const startAnalysis = async () => {
