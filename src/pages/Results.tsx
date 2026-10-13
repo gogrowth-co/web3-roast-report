@@ -19,7 +19,7 @@ import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import SEO from '@/components/SEO';
 import { cn } from '@/lib/utils';
-import { getOppref } from '@/utils/analytics';
+import { getOppref, getGaClientId, trackBeginCheckout, trackGenerateLead } from '@/utils/analytics';
 import type { AIAnalysis } from '@/types/analysis';
 
 const Results = () => {
@@ -34,7 +34,42 @@ const Results = () => {
     return <ErrorState title="Invalid roast ID" />;
   }
 
-  const { data: roast, isLoading, error, retryAnalysis, isRetrying, retryCount, isAnonymous } = useRoastStatus(id);
+  const { data: roast, isLoading, error, retryAnalysis, isRetrying, retryCount, isAnonymous, isUnlocked, leadToken, refetch } = useRoastStatus(id);
+  const [unlockedHere, setUnlockedHere] = useState(false);
+  // Details stay blurred only for an anonymous visitor who has not given an
+  // email for this roast yet (gtm-roast-20).
+  const locked = !user && isAnonymous && !isUnlocked && !unlockedHere;
+
+  const handleEmailSubmit = async (email: string): Promise<boolean> => {
+    const sessionId = localStorage.getItem('roast_session_id');
+    const { data, error: leadError } = await supabase.functions.invoke('capture-lead', {
+      body: { roastId: id, sessionId, email },
+    });
+    if (leadError || !data?.success) {
+      let message = 'Could not send the report. Please try again.';
+      const context = (leadError as { context?: Response } | null)?.context;
+      if (context && typeof context.json === 'function') {
+        try { message = (await context.json())?.error || message; } catch { /* keep generic */ }
+      }
+      toast.error(message);
+      return false;
+    }
+    trackGenerateLead();
+    setUnlockedHere(true);
+    toast.success('Report unlocked. A copy is on its way to your inbox.');
+    refetch();
+    return true;
+  };
+
+  // ?offer=1 (the "Get the Pro Roast" link in the report email) jumps to the offer.
+  useEffect(() => {
+    if (roast?.status !== 'completed') return;
+    if (new URLSearchParams(window.location.search).get('offer') !== '1') return;
+    const target = ['pro-roast-offer', 'pro-roast-offer-mobile']
+      .map((elId) => document.getElementById(elId))
+      .find((el) => el && el.offsetParent !== null);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [roast?.status]);
 
   // Remember an anonymous visitor's roast as soon as they see it, so a signup
   // from anywhere (header, login page, Google) claims it and the result email
@@ -129,17 +164,22 @@ const Results = () => {
     );
   }
 
+  // No account needed: anonymous visitors buy with the session (or emailed
+  // lead token) that owns the roast, and Stripe collects their email.
   const handleUpgradeClick = async () => {
-    if (!user) {
-      toast.error("You must be logged in to upgrade");
-      return;
-    }
-
     setIsUpgrading(true);
+    trackBeginCheckout();
 
     try {
+      const gaClientId = await getGaClientId();
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { roastId: id, oppref: getOppref() }
+        body: {
+          roastId: id,
+          oppref: getOppref(),
+          gaClientId,
+          sessionId: localStorage.getItem('roast_session_id'),
+          leadToken,
+        }
       });
 
       if (error) {
@@ -267,26 +307,24 @@ const Results = () => {
             <ScreenshotSection screenshotUrl={roast.screenshot_url} />
             
             {/* Upgrade CTA - Mobile */}
-            {user && (
-              <div>
-                <Button
-                  className="w-full group relative overflow-hidden"
-                  variant="default"
-                  size="lg"
-                  disabled={isUpgrading}
-                  onClick={handleUpgradeClick}
-                >
-                  <div className="absolute inset-0 bg-web3-orange group-hover:bg-web3-orange/90 transition-all"></div>
-                  <div className="relative flex items-center justify-center gap-2">
-                    <Sparkles className="h-5 w-5" />
-                    <span>{isUpgrading ? 'Processing...' : 'Upgrade to Pro Roast for $49'}</span>
-                  </div>
-                </Button>
-                <p className="text-sm text-gray-400 text-center mt-2">
-                  Get expert personalized video feedback
-                </p>
-              </div>
-            )}
+            <div id="pro-roast-offer-mobile">
+              <Button
+                className="w-full group relative overflow-hidden"
+                variant="default"
+                size="lg"
+                disabled={isUpgrading}
+                onClick={handleUpgradeClick}
+              >
+                <div className="absolute inset-0 bg-web3-orange group-hover:bg-web3-orange/90 transition-all"></div>
+                <div className="relative flex items-center justify-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  <span>{isUpgrading ? 'Processing...' : 'Upgrade to Pro Roast for $49'}</span>
+                </div>
+              </Button>
+              <p className="text-sm text-gray-400 text-center mt-2">
+                A 20-minute video walkthrough I record myself. No account needed.
+              </p>
+            </div>
 
             {/* Category Breakdown and Next Steps - Mobile */}
             <ScoreSummary 
@@ -294,40 +332,34 @@ const Results = () => {
               categories={analysis.categories}
               summary={analysis.summary}
               rawAnalysis={analysis.rawAnalysis}
-              isAnonymous={isAnonymous}
+              isAnonymous={locked}
               user={user}
               onSignUp={handleSignUp}
+              onEmailSubmit={handleEmailSubmit}
               showOverallPerformance={false}
             />
             
             {/* Detailed Feedback - Mobile */}
             <div className="relative">
               <div className={cn(
-                !user && isAnonymous && "filter blur-lg select-none pointer-events-none"
+                locked && "filter blur-lg select-none pointer-events-none"
               )}>
                 <FeedbackSection findings={analysis.findings} />
               </div>
               
-              {!user && isAnonymous && (
+              {locked && (
                 <div className="absolute inset-0 flex items-center justify-center bg-web3-dark/90 backdrop-blur-sm rounded-xl">
                   <SignupOverlay
                     onSignUp={handleSignUp}
-                    title="Sign Up to See Full Analysis"
-                    description="Get access to detailed feedback, actionable recommendations, and expert insights to improve your Web3 landing page."
+                    onEmailSubmit={handleEmailSubmit}
+                    title="Get the Full Report"
+                    description="Every finding, ranked by impact, with the fix for each. Free, sent to your inbox."
                     icon="lock"
                   />
                 </div>
               )}
             </div>
             
-            {!user && isAnonymous && (
-              <div className="text-center p-6 bg-web3-gray rounded-xl border border-web3-purple/30">
-                <p className="text-white font-semibold mb-2">Want the Full Report?</p>
-                <Button onClick={handleSignUp} className="w-full bg-web3-orange hover:bg-web3-orange/90 text-web3-dark">
-                  Sign Up - It's Free
-                </Button>
-              </div>
-            )}
           </div>
 
           {/* Desktop Layout */}
@@ -338,17 +370,18 @@ const Results = () => {
             {/* Detailed Feedback with blur overlay for anonymous users */}
             <div className="relative">
               <div className={cn(
-                !user && isAnonymous && "filter blur-lg select-none pointer-events-none"
+                locked && "filter blur-lg select-none pointer-events-none"
               )}>
                 <FeedbackSection findings={analysis.findings} />
               </div>
               
-              {!user && isAnonymous && (
+              {locked && (
                 <div className="absolute inset-0 flex items-center justify-center bg-web3-dark/90 backdrop-blur-sm rounded-xl">
                   <SignupOverlay
                     onSignUp={handleSignUp}
-                    title="Sign Up to See Full Analysis"
-                    description="Get access to detailed feedback, actionable recommendations, and expert insights to improve your Web3 landing page."
+                    onEmailSubmit={handleEmailSubmit}
+                    title="Get the Full Report"
+                    description="Every finding, ranked by impact, with the fix for each. Free, sent to your inbox."
                     icon="lock"
                   />
                 </div>
@@ -362,41 +395,32 @@ const Results = () => {
               categories={analysis.categories}
               summary={analysis.summary}
               rawAnalysis={analysis.rawAnalysis}
-              isAnonymous={isAnonymous}
+              isAnonymous={locked}
               user={user}
               onSignUp={handleSignUp}
+              onEmailSubmit={handleEmailSubmit}
             />
 
             {/* Upgrade CTA - Desktop only (in sidebar) */}
-            {user && (
-              <div>
-                <Button
-                  className="w-full group relative overflow-hidden"
-                  variant="default"
-                  size="lg"
-                  disabled={isUpgrading}
-                  onClick={handleUpgradeClick}
-                >
-                  <div className="absolute inset-0 bg-web3-orange group-hover:bg-web3-orange/90 transition-all"></div>
-                  <div className="relative flex items-center justify-center gap-2">
-                    <Sparkles className="h-5 w-5" />
-                    <span>{isUpgrading ? 'Processing...' : 'Upgrade to Pro Roast for $49'}</span>
-                  </div>
-                </Button>
-                <p className="text-sm text-gray-400 text-center mt-2">
-                  Get expert personalized video feedback
-                </p>
-              </div>
-            )}
+            <div id="pro-roast-offer">
+              <Button
+                className="w-full group relative overflow-hidden"
+                variant="default"
+                size="lg"
+                disabled={isUpgrading}
+                onClick={handleUpgradeClick}
+              >
+                <div className="absolute inset-0 bg-web3-orange group-hover:bg-web3-orange/90 transition-all"></div>
+                <div className="relative flex items-center justify-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  <span>{isUpgrading ? 'Processing...' : 'Upgrade to Pro Roast for $49'}</span>
+                </div>
+              </Button>
+              <p className="text-sm text-gray-400 text-center mt-2">
+                A 20-minute video walkthrough I record myself. No account needed.
+              </p>
+            </div>
             
-            {!user && isAnonymous && (
-              <div className="text-center p-6 bg-web3-gray rounded-xl border border-web3-purple/30">
-                <p className="text-white font-semibold mb-2">Want the Full Report?</p>
-                <Button onClick={handleSignUp} className="w-full bg-web3-orange hover:bg-web3-orange/90 text-web3-dark">
-                  Sign Up - It's Free
-                </Button>
-              </div>
-            )}
           </div>
         </div>
 
@@ -409,7 +433,7 @@ const Results = () => {
         </div>
       </div>
 
-      <UpgradeBanner user={user} onSignUp={handleSignUp} />
+      <UpgradeBanner onUpgrade={handleUpgradeClick} isUpgrading={isUpgrading} />
     </div>
   );
 };

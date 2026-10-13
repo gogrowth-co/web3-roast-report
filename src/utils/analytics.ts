@@ -14,8 +14,20 @@
 const GA4_MEASUREMENT_IDS = ['G-DDHR0VPSE4', 'G-77SVSK807V'];
 
 // Track a page view
-export const trackPageView = (path: string) => {
+// The lead token (?k=) in an emailed report link unlocks that report; it
+// must never be sent to GA as part of a page path.
+const stripPrivateParams = (path: string) => {
+  const [base, query] = path.split('?');
+  if (!query) return path;
+  const params = new URLSearchParams(query);
+  params.delete('k');
+  const rest = params.toString();
+  return rest ? `${base}?${rest}` : base;
+};
+
+export const trackPageView = (rawPath: string) => {
   if (typeof window === 'undefined' || !window.gtag) return;
+  const path = stripPrivateParams(rawPath);
   for (const id of GA4_MEASUREMENT_IDS) {
     window.gtag('config', id, { page_path: path });
   }
@@ -53,16 +65,53 @@ export const trackUrlSubmission = (url: string) => {
   });
 };
 
-// Track a completed purchase. value/currency/transaction_id are GA4's
-// built-in ecommerce parameters -- no custom dimension to register, and
-// revenue rolls up into GA4's Monetization reports on its own.
-export const trackPurchase = (transactionId: string, value: number, currency = 'USD') => {
-  trackEvent('purchase', {
-    transaction_id: transactionId,
-    value,
-    currency,
-  });
+// purchase is sent server-side by stripe-webhook (GA4 Measurement Protocol),
+// so it counts even when the buyer never reaches /order-complete or has no
+// account. The browser only reports the steps before it.
+const PRO_ROAST_ITEM = { item_id: 'pro-roast', item_name: 'Pro Roast' };
+
+// Clicked the Pro Roast offer (before Stripe).
+export const trackBeginCheckout = () => {
+  trackEvent('begin_checkout', { items: [PRO_ROAST_ITEM] });
 };
+
+// Gave an email to get the full free report.
+export const trackGenerateLead = () => {
+  trackEvent('generate_lead', { lead_source: 'free_roast_report' });
+};
+
+// Google sign-ups land back on the site through an OAuth redirect, so the
+// email form's sign_up event never fires for them. Called on SIGNED_IN for a
+// brand-new Google user, once per user.
+export const trackOAuthSignUpOnce = (userId: string, provider: string, createdAt: string) => {
+  try {
+    const ageMs = Date.now() - new Date(createdAt).getTime();
+    if (!(ageMs >= 0 && ageMs < 10 * 60 * 1000)) return;
+    const key = `signup_tracked_${userId}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+    trackSignUp(provider);
+  } catch (_) {
+    // storage blocked: skip rather than risk double counting
+  }
+};
+
+// GA4 client id for Roast's own property, so the server-side purchase joins
+// the buyer's session. Resolves null if gtag is blocked or slow.
+export const getGaClientId = (): Promise<string | null> =>
+  new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.gtag) return resolve(null);
+    const timer = setTimeout(() => resolve(null), 800);
+    try {
+      window.gtag('get', 'G-DDHR0VPSE4', 'client_id', (id: unknown) => {
+        clearTimeout(timer);
+        resolve(typeof id === 'string' ? id : null);
+      });
+    } catch (_) {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
 
 // OpenAI's own ad-click attribution identifier. Confirmed against the real
 // oaiq.min.js pixel source (not guessed): it reads an `oppref` query param

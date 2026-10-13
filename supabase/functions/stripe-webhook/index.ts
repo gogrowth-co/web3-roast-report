@@ -219,6 +219,57 @@ async function sendConversionEvent(params: {
   }
 }
 
+// Server-side GA4 purchase (Measurement Protocol). The browser event on
+// /order-complete only fired if the buyer stayed logged in on that page and
+// the webhook beat a 10s poll; anonymous buyers could never fire it. Sent to
+// both GA4 destinations the site reports to (Roast's own property and
+// mangabeira.net's stream). Each needs its own Measurement Protocol secret;
+// a destination without one is skipped. Fire-and-forget, like the others.
+const GA4_DESTINATIONS: [string, string][] = [
+  ['G-DDHR0VPSE4', 'GA4_MP_SECRET_ROAST'],
+  ['G-77SVSK807V', 'GA4_MP_SECRET_MANGABEIRA'],
+];
+
+async function sendGa4Purchase(params: {
+  clientId: string | null;
+  transactionId: string;
+  value: number; // decimal currency units (49.00), not cents
+  currency: string;
+  pageLocation: string;
+}) {
+  const clientId = params.clientId || `${Math.floor(Math.random() * 1e10)}.${Math.floor(Date.now() / 1000)}`;
+  const body = JSON.stringify({
+    client_id: clientId,
+    events: [{
+      name: 'purchase',
+      params: {
+        transaction_id: params.transactionId,
+        value: params.value,
+        currency: params.currency.toUpperCase(),
+        items: [{ item_id: 'pro-roast', item_name: 'Pro Roast', price: params.value, quantity: 1 }],
+        page_location: params.pageLocation,
+        engagement_time_msec: 1,
+      },
+    }],
+  });
+  await Promise.all(GA4_DESTINATIONS.map(async ([measurementId, secretName]) => {
+    const secret = Deno.env.get(secretName);
+    if (!secret) {
+      console.error(`GA4 purchase skipped for ${measurementId}: ${secretName} not set`);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${encodeURIComponent(secret)}`,
+        { method: 'POST', body, signal: AbortSignal.timeout(3000) },
+      );
+      if (!res.ok) console.error(`GA4 purchase rejected for ${measurementId} (non-fatal): HTTP ${res.status}`);
+    } catch (error) {
+      console.error(`GA4 purchase failed for ${measurementId} (non-fatal):`, error);
+    }
+  }));
+}
+
 serve(async (req) => {
   try {
     const stripeSignature = req.headers.get('stripe-signature');
@@ -330,44 +381,65 @@ serve(async (req) => {
           .eq('id', roastId)
           .maybeSingle();
         roastUrl = roastRow?.url ?? null;
+        if (!roastUrl) {
+          // Bought without an account: the roast is still anonymous.
+          const { data: anonRow } = await supabase
+            .from('anonymous_roasts')
+            .select('url')
+            .eq('id', roastId)
+            .maybeSingle();
+          roastUrl = anonRow?.url ?? null;
+        }
       }
 
-      await sendFulfillmentAlert({
-        buyerEmail,
-        amount: session.amount_total ?? null,
-        currency: session.currency ?? null,
-        sessionId,
-        roastId,
-        roastUrl,
-      });
-
-      await sendBuyerConfirmationEmail({
-        buyerEmail,
-        roastUrl,
-        sessionId,
-      });
-
       // Real purchase signal for the ChatGPT Ads campaigns -- checkout_started
-      // fires at create-checkout time; this is the matching order_created for
-      // an actually completed sale, same account pixel and event type Growth
-      // Audit's own checkout campaign already optimizes toward.
-      // sourceUrl must be where the PURCHASE happened, not `roastUrl` (the
-      // customer's own submitted site being audited -- using that would
-      // misattribute the sale to an unrelated third-party domain).
-      await sendConversionEvent({
-        type: 'order_created',
-        amount: session.amount_total ?? 0, // Stripe's amount_total is already in cents
-        currency: session.currency ?? 'usd',
-        sourceUrl: `${checkoutOrigin}/order-complete?session_id=${sessionId}`,
-        eventId: `${sessionId}:order_created`,
-        email: buyerEmail,
-        oppref: metadata?.oppref || null,
-      });
+      // fires at create-checkout time; order_created is the matching event for
+      // an actually completed sale. sourceUrl must be where the PURCHASE
+      // happened, not `roastUrl` (the customer's own audited site).
+      const notifications = Promise.all([
+        sendFulfillmentAlert({
+          buyerEmail,
+          amount: session.amount_total ?? null,
+          currency: session.currency ?? null,
+          sessionId,
+          roastId,
+          roastUrl,
+        }),
+        sendBuyerConfirmationEmail({ buyerEmail, roastUrl, sessionId }),
+        sendConversionEvent({
+          type: 'order_created',
+          amount: session.amount_total ?? 0, // Stripe's amount_total is already in cents
+          currency: session.currency ?? 'usd',
+          sourceUrl: `${checkoutOrigin}/order-complete?session_id=${sessionId}`,
+          eventId: `${sessionId}:order_created`,
+          email: buyerEmail,
+          oppref: metadata?.oppref || null,
+        }),
+        sendGa4Purchase({
+          clientId: metadata?.ga_cid || null,
+          transactionId: sessionId,
+          value: (session.amount_total ?? 0) / 100,
+          currency: session.currency ?? 'usd',
+          pageLocation: `${checkoutOrigin}/order-complete`,
+        }),
+      ]);
+      // Started before the DB writes (so a bookkeeping failure never skips
+      // them) but not awaited on the response path: each helper already
+      // swallows its own errors, and slow email/ads/GA4 calls must not push
+      // the reply past Stripe's timeout. waitUntil keeps the worker alive
+      // until they finish.
+      // deno-lint-ignore no-explicit-any
+      const edgeRuntime = (globalThis as any).EdgeRuntime;
+      if (edgeRuntime?.waitUntil) {
+        edgeRuntime.waitUntil(notifications);
+      } else {
+        await notifications;
+      }
 
       // Update the purchase record
       const { data: purchaseData, error: purchaseError } = await supabase
         .from('purchases')
-        .update({ status: 'complete' })
+        .update({ status: 'complete', ...(buyerEmail ? { email: buyerEmail } : {}) })
         .eq('session_id', sessionId)
         .select('user_id');
 
@@ -376,8 +448,9 @@ serve(async (req) => {
         return new Response(`Error updating purchase: ${purchaseError.message}`, { status: 500 });
       }
 
-      if (purchaseData && purchaseData.length > 0) {
-        const userId = purchaseData[0].user_id;
+      // Anonymous purchases have no user to flag Pro (user_id is null).
+      const userId = purchaseData?.[0]?.user_id ?? null;
+      if (userId) {
 
         // Update the user's is_pro status
         const { error: userUpdateError } = await supabase.auth.admin.updateUserById(

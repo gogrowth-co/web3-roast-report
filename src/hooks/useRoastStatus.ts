@@ -15,10 +15,20 @@ export const useRoastStatus = (roastId: string) => {
   const [isAnalysisStarted, setIsAnalysisStarted] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  // An anonymous report is unlocked once any email was given for it
+  // (capture-lead). The ?k= lead token from the report email proves
+  // ownership on a device that never ran the roast.
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const leadToken = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('k')
+    : null;
 
   // Function to start the analysis with retry logic
   const startAnalysis = async () => {
     if (isAnalysisStarted) return;
+    // Emailed report links only exist for completed roasts, and this device
+    // may not own the session the analysis checks, so never re-trigger it.
+    if (leadToken) return;
     
     try {
       console.log("Starting analysis for roastId:", roastId);
@@ -105,15 +115,15 @@ export const useRoastStatus = (roastId: string) => {
       // ownership itself instead.
       console.log("Roast not in roasts table, checking anonymous_roasts via get-anonymous-roast");
       const sessionId = localStorage.getItem('roast_session_id');
-      if (sessionId) {
+      if (sessionId || leadToken) {
         const { data: anonymousResult, error: anonymousError } = await supabase.functions.invoke(
           'get-anonymous-roast',
-          { body: { roastId, sessionId } }
+          { body: { roastId, sessionId, leadToken } }
         );
 
         if (anonymousResult?.roast) {
-          console.log("Found roast via get-anonymous-roast:", anonymousResult.roast);
           setIsAnonymous(true);
+          setIsUnlocked(!!anonymousResult.unlocked);
           return anonymousResult.roast;
         }
 
@@ -138,6 +148,8 @@ export const useRoastStatus = (roastId: string) => {
     retryAnalysis,
     isRetrying: retryCount > 0,
     retryCount,
-    isAnonymous
+    isAnonymous,
+    isUnlocked,
+    leadToken,
   };
 };

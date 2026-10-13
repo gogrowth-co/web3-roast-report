@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from '@supabase/supabase-js';
+import { trackOAuthSignUpOnce } from '@/utils/analytics';
 
 export const useSession = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -12,6 +13,11 @@ export const useSession = () => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        const u = currentSession?.user;
+        const provider = u?.app_metadata?.provider;
+        if (event === 'SIGNED_IN' && u && provider && provider !== 'email') {
+          trackOAuthSignUpOnce(u.id, provider, u.created_at);
+        }
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);

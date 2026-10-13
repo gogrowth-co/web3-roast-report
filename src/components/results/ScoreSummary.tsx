@@ -16,10 +16,11 @@ interface ScoreSummaryProps {
   isAnonymous?: boolean;
   user?: User | null;
   onSignUp?: () => void;
+  onEmailSubmit?: (email: string) => Promise<boolean>;
   showOverallPerformance?: boolean;
 }
 
-const ScoreSummary = ({ score, categories, summary, rawAnalysis, isAnonymous = false, user = null, onSignUp, showOverallPerformance = true }: ScoreSummaryProps) => {
+const ScoreSummary = ({ score, categories, summary, rawAnalysis, isAnonymous = false, user = null, onSignUp, onEmailSubmit, showOverallPerformance = true }: ScoreSummaryProps) => {
   // Generate performance overview that highlights strengths and weaknesses
   const getPerformanceSummary = () => {
     // Find top category and weakest category
@@ -172,6 +173,7 @@ const ScoreSummary = ({ score, categories, summary, rawAnalysis, isAnonymous = f
           <div className="absolute inset-0 flex items-center justify-center bg-web3-dark/90 backdrop-blur-sm rounded-xl">
             <SignupOverlay
               onSignUp={onSignUp}
+              onEmailSubmit={onEmailSubmit}
               title="Unlock Actionable Recommendations"
               description="See exactly what to fix and how to improve your conversion rate with step-by-step guidance."
               icon="zap"
