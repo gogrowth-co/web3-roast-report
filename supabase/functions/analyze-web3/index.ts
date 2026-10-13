@@ -238,7 +238,9 @@ serve(async (req) => {
     }
     
     // For anonymous roasts, validate session ID
-    if (isAnonymous && sessionId && roast.session_id !== sessionId) {
+    // A missing sessionId used to skip this check, so anyone holding a roast
+    // id could trigger (paid) analysis runs on it.
+    if (isAnonymous && roast.session_id !== sessionId) {
       console.error("Session ID mismatch");
       throw new Error('Invalid session');
     }
