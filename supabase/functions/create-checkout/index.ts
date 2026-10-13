@@ -180,7 +180,9 @@ serve(async (req) => {
         throw new Error('Roast not found');
       }
       anonymousRoastId = anonRoast.id;
-      knownEmail = tokenLead?.email ?? (ownsBySession ? leads?.[0]?.email ?? null : null);
+      // Prefill only from the buyer's own emailed link; several people can
+      // unlock one roast, so the session's latest lead may be someone else.
+      knownEmail = tokenLead?.email ?? null;
     }
 
     const origin = req.headers.get('origin') ?? '';
