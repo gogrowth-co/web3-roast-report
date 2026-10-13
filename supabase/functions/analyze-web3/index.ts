@@ -226,8 +226,13 @@ serve(async (req) => {
       });
     }
 
-    // Validate roast status is pending
-    if (roast.status !== 'pending' && !isStale) {
+    // Pending, a failed run the visitor retries by hand (retry: true, from
+    // the Retry button, which used to hit this guard and could never recover
+    // a failed roast), or stale. Automatic client retries don't send
+    // retry: true, so a failing site can't burn screenshot credits in a loop;
+    // the per-roast rate limit below caps manual retries too.
+    const isManualRetryOfFailed = roast.status === 'failed' && requestData?.retry === true;
+    if (roast.status !== 'pending' && !isManualRetryOfFailed && !isStale) {
       console.error("Roast is not in pending status:", roast.status);
       throw new Error('Roast has already been processed');
     }

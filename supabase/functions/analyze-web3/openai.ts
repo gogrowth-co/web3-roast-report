@@ -1,4 +1,5 @@
 
+import { extractJsonObject } from "./json-extract.ts";
 // Function to perform analysis using OpenAI with retry logic
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 3000;
@@ -300,13 +301,9 @@ ${screenshotUrl ? `Use BOTH the screenshot (${screenshotUrl}) for visual analysi
     try {
       const content = aiData.choices[0].message.content.trim();
       
-      // Handle potential markdown formatting in response
-      let jsonContent = content;
-      if (content.startsWith('```json')) {
-        jsonContent = content.replace(/```json|```/g, '').trim();
-      }
-      
-      analysis = JSON.parse(jsonContent);
+      // Fences, preambles and stray trailing characters all happen; take the
+      // first complete JSON object rather than parsing the whole reply.
+      analysis = JSON.parse(extractJsonObject(content));
       console.log("Analysis parsed successfully");
       
       // Transform the new format to be compatible with the frontend
