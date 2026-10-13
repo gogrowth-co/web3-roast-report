@@ -19,6 +19,8 @@ export const useRoastStatus = (roastId: string) => {
   // (capture-lead). The ?k= lead token from the report email proves
   // ownership on a device that never ran the roast.
   const [isUnlocked, setIsUnlocked] = useState(false);
+  // Set only by the Retry button: lets analyze-web3 restart a failed roast.
+  const [manualRetry, setManualRetry] = useState(false);
   // index.html moves ?k= into sessionStorage before any analytics tag
   // loads, so the token never reaches GA or ad pixels.
   const leadToken = (() => {
@@ -51,7 +53,8 @@ export const useRoastStatus = (roastId: string) => {
         body: { 
           roastId,
           sessionId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          ...(manualRetry ? { retry: true } : {}),
         }
       });
 
@@ -92,6 +95,7 @@ export const useRoastStatus = (roastId: string) => {
 
   // Function to manually retry the analysis
   const retryAnalysis = () => {
+    setManualRetry(true);
     setRetryCount(0);
     setIsAnalysisStarted(false);
   };
