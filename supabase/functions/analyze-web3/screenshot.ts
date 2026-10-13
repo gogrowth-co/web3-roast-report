@@ -6,8 +6,8 @@ const RETRY_DELAY = 2000; // 2 seconds
 const SCREENSHOT_TIMEOUT_MS = 25_000;
 // ScreenshotOne gets its own render budget (timeout param) plus a margin
 // for the HTTP round trip.
-const FALLBACK_RENDER_TIMEOUT_S = 28;
-const FALLBACK_FETCH_TIMEOUT_MS = 32_000;
+const FALLBACK_RENDER_TIMEOUT_S = 35;
+const FALLBACK_FETCH_TIMEOUT_MS = 40_000;
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -62,9 +62,11 @@ export async function captureAndStoreScreenshot(
     // 1) APIFlash full page, one 25s try. Heavy pages (animated DeFi heroes
     //    such as pendle.finance) time out on a full-page render with any
     //    provider, so a retry here only burns time.
-    // 2) ScreenshotOne, top of the page only (1024x768): renders those pages
-    //    and is a second monthly quota when APIFlash runs out.
-    // Worst case ~57s; the caller continues without a screenshot after that.
+    // 2) ScreenshotOne, top of the page only (1024x768), captured 3s after
+    //    DOMContentLoaded: animated/websocket pages never reach "load", so
+    //    waiting for it timed out (pendle.finance: 500 at 28s; 13.5s this way).
+    //    Also a second monthly quota when APIFlash runs out.
+    // Worst case ~65s; the caller continues without a screenshot after that.
     let screenshotBlob: Blob;
     try {
       console.log("Capturing full page screenshot for URL:", url);
@@ -75,7 +77,7 @@ export async function captureAndStoreScreenshot(
     } catch (primaryError) {
       if (!fallbackApiKey) throw primaryError;
       console.warn("APIFlash failed, trying ScreenshotOne (top of page):", primaryError instanceof Error ? primaryError.message : primaryError);
-      const fallbackUrl = `https://api.screenshotone.com/take?access_key=${fallbackApiKey}&url=${encodeURIComponent(url)}&full_page=false&format=jpg&image_quality=85&viewport_width=1024&viewport_height=768&block_ads=true&block_cookie_banners=true&timeout=${FALLBACK_RENDER_TIMEOUT_S}`;
+      const fallbackUrl = `https://api.screenshotone.com/take?access_key=${fallbackApiKey}&url=${encodeURIComponent(url)}&full_page=false&format=jpg&image_quality=85&viewport_width=1024&viewport_height=768&block_ads=true&block_cookie_banners=true&wait_until=domcontentloaded&delay=3&timeout=${FALLBACK_RENDER_TIMEOUT_S}`;
       const fallbackResponse = await fetchWithRetry(fallbackUrl, {}, 0, FALLBACK_FETCH_TIMEOUT_MS);
       screenshotBlob = await fallbackResponse.blob();
       console.log("ScreenshotOne fallback captured the top of the page");
