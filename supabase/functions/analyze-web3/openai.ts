@@ -113,7 +113,7 @@ function buildProviderChain(keys: AiKeys) {
 
 export async function generateWebsiteAnalysis(
   url: string,
-  screenshotUrl: string,
+  screenshotUrl: string | null,
   aiKeys: AiKeys,
   scrapedContent?: ScrapedContent,
   enrichment?: EnrichmentData
@@ -238,7 +238,7 @@ Return your output in this exact structure — valid JSON only, nothing else:
 
 Tone: Candid. Tactical. No filler. Write like a smart Web3 founder is reading this and wants signal, not fluff.
 
-Use BOTH the screenshot (${screenshotUrl}) for visual analysis AND the scraped text content for precise copy analysis.${contentContext}${realDataBlock}`;
+${screenshotUrl ? `Use BOTH the screenshot (${screenshotUrl}) for visual analysis AND the scraped text content for precise copy analysis.` : 'No screenshot could be captured for this page. Base the analysis on the scraped text content, and score visual categories from what the copy and structure show.'}${contentContext}${realDataBlock}`;
 
   const providers = buildProviderChain(aiKeys);
   if (providers.length === 0) {
@@ -251,8 +251,10 @@ Use BOTH the screenshot (${screenshotUrl}) for visual analysis AND the scraped t
       {
         role: "user",
         content: [
-          { type: "text", text: `Analyze this Web3 landing page at ${url}. Use the screenshot for visual analysis and the scraped content for precise text analysis.` },
-          { type: "image_url", image_url: { url: screenshotUrl } }
+          screenshotUrl
+            ? { type: "text", text: `Analyze this Web3 landing page at ${url}. Use the screenshot for visual analysis and the scraped content for precise text analysis.` }
+            : { type: "text", text: `Analyze this Web3 landing page at ${url} from the scraped content (no screenshot available).` },
+          ...(screenshotUrl ? [{ type: "image_url", image_url: { url: screenshotUrl } }] : []),
         ]
       }
     ]

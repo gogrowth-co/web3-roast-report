@@ -163,7 +163,7 @@ serve(async (req) => {
     let isAnonymous = false;
     
     // Try roasts table first
-    const roastResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}&select=url,status`, {
+    const roastResponse = await fetch(`${supabaseUrl}/rest/v1/roasts?id=eq.${roastId}&select=url,status,created_at,processing_started_at`, {
       headers: {
         'Authorization': `Bearer ${supabaseKey}`,
         'apikey': supabaseKey,
@@ -181,7 +181,7 @@ serve(async (req) => {
     // If not found, try anonymous_roasts table
     if (!roastData) {
       console.log("Roast not found in roasts table, checking anonymous_roasts");
-      const anonymousResponse = await fetch(`${supabaseUrl}/rest/v1/anonymous_roasts?id=eq.${roastId}&select=url,status,session_id`, {
+      const anonymousResponse = await fetch(`${supabaseUrl}/rest/v1/anonymous_roasts?id=eq.${roastId}&select=url,status,session_id,created_at,processing_started_at`, {
         headers: {
           'Authorization': `Bearer ${supabaseKey}`,
           'apikey': supabaseKey,
@@ -209,16 +209,25 @@ serve(async (req) => {
       throw new Error('Roast URL is missing');
     }
     
-    // Early exit if already processing or completed (idempotent)
-    if (roast.status === 'processing' || roast.status === 'completed') {
+    // Early exit if already processing or completed (idempotent) -- unless
+    // the 'processing' run is stale. The edge runtime kills a function at
+    // its wall-clock limit (~150s) without running any catch, which used to
+    // leave rows on 'processing' forever (gtm-roast-21). Past STALE_MS the
+    // run is dead, so start it again.
+    const STALE_MS = 4 * 60 * 1000;
+    const startedAt = Date.parse(roast.processing_started_at ?? roast.created_at ?? '');
+    const isStale = roast.status === 'processing' && Number.isFinite(startedAt) && Date.now() - startedAt > STALE_MS;
+    if (isStale) {
+      console.warn(`Roast ${roastId} stuck on 'processing' since ${new Date(startedAt).toISOString()}; restarting`);
+    } else if (roast.status === 'processing' || roast.status === 'completed') {
       console.log("Roast already started, status:", roast.status);
       return new Response(JSON.stringify({ success: true, alreadyStarted: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     // Validate roast status is pending
-    if (roast.status !== 'pending') {
+    if (roast.status !== 'pending' && !isStale) {
       console.error("Roast is not in pending status:", roast.status);
       throw new Error('Roast has already been processed');
     }
@@ -261,7 +270,7 @@ serve(async (req) => {
     console.log("Found roast with URL:", roast.url);
     
     // Update status to processing
-    await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'processing', {}, isAnonymous);
+    await updateRoastStatus(supabaseUrl, supabaseKey, roastId, 'processing', { processing_started_at: new Date().toISOString() }, isAnonymous);
 
     try {
       // Scrape and screenshot don't depend on each other -- run them
@@ -270,13 +279,18 @@ serve(async (req) => {
       console.log("Scraping website content and capturing screenshot concurrently");
       const [scrapedContent, finalScreenshotUrl] = await Promise.all([
         scrapeWebsiteContent(roast.url, firecrawlApiKey),
+        // A failed or slow screenshot (timeout, APIFlash quota exhausted) no
+        // longer fails the whole roast: the text analysis still runs.
         captureAndStoreScreenshot(
           roastId,
           roast.url,
           supabaseUrl,
           supabaseKey,
           screenshotApiKey
-        ),
+        ).catch((screenshotError) => {
+          console.error("Screenshot unavailable, continuing without it:", screenshotError instanceof Error ? screenshotError.message : screenshotError);
+          return null;
+        }),
       ]);
 
       // Real Web3 signal (GitHub activity, CT mindshare) when the scraped
