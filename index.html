@@ -56,6 +56,12 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
+      // Lovable preview hosts and any other non-production host are marked
+      // traffic_type=internal so the GA4 "Internal Traffic" data filter drops
+      // them in both properties. Production hosts are untouched.
+      if (['roast.mangabeira.net', 'web3roast.com', 'www.web3roast.com'].indexOf(window.location.hostname) === -1) {
+        gtag('set', { traffic_type: 'internal' });
+      }
       // Web3 Roast's own standalone property, kept for continuity with its
       // existing historical data.
       gtag('config', 'G-DDHR0VPSE4', {
